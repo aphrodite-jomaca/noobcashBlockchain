@@ -14,15 +14,22 @@ from uuid import uuid4
 
 
 
-class wallet:
+class Wallet:
 
-	def __init__():
+	def __init__(self,address):
 		##set
+		self.generate_wallet()
+		self.address = address
+		self.transactions = []
 
-		#self.public_key
-		#self.private_key
-		#self_address
-		#self.transactions
+	def generate_wallet(self):
+		randfunc = Crypto.Random.new().read 
+		self.private_key  = RSA.generate(2048,randfunc)
+		self.public_key = self.private_key.publickey().exportKey().decode()
 
-	def balance():
+	def wallet_balance(self, node):
+		balance = 0
+		for utxo in node.utxos[self.public_key]: 
+			balance+=utxo['amount']
+		return balance 
 

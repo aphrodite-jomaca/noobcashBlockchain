@@ -1,7 +1,7 @@
 import block
 import wallet
 
-class node:
+class Node:
 	def __init__():
 		self.NBC=100;
 		##set
@@ -11,12 +11,12 @@ class node:
 		#self.NBCs
 		#self.wallet
 
-		#slef.ring[]   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
+		#self.ring[]   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
 
 
 
 
-	def.create_new_block():
+	def create_new_block():
 
 	def create_wallet():
 		#create a wallet for this node, with a public key and a private key
