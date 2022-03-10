@@ -1,4 +1,4 @@
-import blockchain
+import Node
 from Crypto.Hash import SHA384
 import config
 from pymerkle import MerkleTree
@@ -55,9 +55,9 @@ class Block:
         return (int(computed_hash[0:config.DIFFICULTY],16) == 0)
         
 
-    def validate_block(self, state):
+    def validate_block(self, node):
         currentHashValid = self.validate_currentHash()
-        prevHashValid = self.previousHash == state.blockchain[-1].hash
+        prevHashValid = self.previousHash == node.blockchain[-1].hash
 
         return (currentHashValid and prevHashValid)
 
