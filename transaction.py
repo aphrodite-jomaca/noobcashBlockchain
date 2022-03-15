@@ -42,3 +42,10 @@ class Transaction:
         signer = PKCS1_v1_5.new(priv_key)
         self.signature = base64.b64encode(signer.sign(object_hash))
        
+    def verify_signature(self):
+        pub_rsa = RSA.importKey(self.sender_address.encode())
+        verifier = PKCS1_v1_5.new(pub_rsa)
+        objest_hash = SHA256.new(data = self.transaction_id.encode())
+        return verifier.verify(objest_hash, base64.b64decode(self.signature))
+
+    

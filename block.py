@@ -5,11 +5,11 @@ from pymerkle import MerkleTree
 import time
 
 class Block:
-    def __init__(self, previousHash, listOfTransactions, timestamp=None, hash=None, nonce=None):
+    def __init__(self, previousHash, listOfTransactions, timestamp=None, currentHash=None, nonce=None):
     ##set
         self.previousHash = previousHash
         self.timestamp = str(time()).encode() if timestamp == None else timestamp.encode()
-        self.hash = hash
+        self.currentHash = currentHash
         self.nonce = nonce
         self.listOfTransactions = listOfTransactions
 
@@ -35,7 +35,7 @@ class Block:
             if int(computed_hash[0:config.DIFFICULTY],16) == 0 :
                 break
 
-        self.hash = computed_hash.encode()
+        self.currentHash = computed_hash.encode()
         self.nonce = nonce
         self.timestamp = timestamp    
 
@@ -57,7 +57,7 @@ class Block:
 
     def validate_block(self, node):
         currentHashValid = self.validate_currentHash()
-        prevHashValid = self.previousHash == node.blockchain[-1].hash
+        prevHashValid = self.previousHash == node.blockchain[-1].currentHash
 
         return (currentHashValid and prevHashValid)
 
