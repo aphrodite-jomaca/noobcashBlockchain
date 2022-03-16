@@ -1,6 +1,10 @@
-import Block
-import Wallet
-import Transaction
+from block import Block
+from wallet import Wallet
+from transaction import Transaction
+import requests
+from operator import itemgetter
+import utils
+import config
 
 from threading import RLock
 
@@ -17,8 +21,7 @@ class Node:
 		self.utxos = []
 
 
-
-	def create_new_block():
+	#def create_new_block():
 
 	def create_wallet(self, ip, port):
 		#create a wallet for this node, with a public key and a private key
@@ -26,41 +29,59 @@ class Node:
 
 	def register_node_to_ring(self, info_list):
 		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
-		#bottstrap node informs all other nodes and gives the request node an id and 100 NBCs
+		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
 		for info in info_list:
 			if info['address'] == self.wallet.address:
 				self.myid = info['id']
 			else:
 				self.network_info.append(info)
+				
+	
+	def genesis(self):
+		genesis_transaction = Transaction(0, self.wallet.public_key, 100*config.NODES, [])
+		genesis_transaction.create_transaction_id()
+		
+		genesis_utxo = [{
+			'transaction_id' : genesis_transaction.transaction_id, 
+			'type' : 0, 
+			'recipient' : genesis_transaction.recipient_address , 
+			'amount' : genesis_transaction.amount }]
+		genesis_transaction.outputs = [genesis_utxo]
 
+		genesis_block = Block(1, b'1', [genesis_transaction], nonce = 0,currentHash = b'1')
+		self.utxos[self.wallet.public_key] = genesis_utxo 
+		self.blockchain.append(genesis_block)
+		return 
+		
 
-	def create_transaction(receiver, signature, amount):
+	def create_transaction(self, receiver, signature, amount):
 		sender = self.wallet.public_key
-        inputs = []
+		inputs = []
 
         #Check if we have enough money
-        current_balance = 0
-        utxos_to_remove = []
-
-        for utxo in self.utxos[sender]:
-            current_balance += utxo['amount']
-            inputs.append(utxo['transaction_id'] + ':' + utxo['type'])
-            utxos_to_remove.append(utxo)
-
-            if current_balance >= amount :
-                break 
+		current_balance = 0
+		utxos_to_remove = []
+		
+		for utxo in self.utxos[sender]:
+			current_balance += utxo['amount']
+			inputs.append(utxo['transaction_id'] + ':' + utxo['type'])
+			utxos_to_remove.append(utxo)
+			
+			if current_balance >= amount :
+				break 
         
-        if current_balance < amount:
-            print('NBCs in wallet not enough! Requested ', amount, 'but have', coins, '!')
-            return (False)
-
-        for utxo in utxos_to_remove: 
-            self.utxos[sender].remove(utxo)
+		if current_balance < amount:
+			print('NBCs in wallet not enough! Requested ', amount, 'but have', coins, '!')
+			return (False)
+			
+		
+		for utxo in utxos_to_remove: 
+			self.utxos[sender].remove(utxo)
 
         #If yes, create transaction
-        trans = Transaction(sender, receiver, amount, inputs)
-        trans.create_transaction_id()
-        trans.sign_transaction(self.wallet.private_key)
+		trans = Transaction(sender, receiver, amount, inputs)
+		trans.create_transaction_id()
+		trans.sign_transaction(self.wallet.private_key)
 
         #Create corresponding outputs
 		outputs = [{
@@ -69,9 +90,9 @@ class Node:
                 'recipient': trans.recipient_address,
                 'amount': trans.amount
 			}]
-
-        if (current_balance > trans.amount):  
-            outputs.append({
+		
+		if (current_balance > trans.amount):  
+			outputs.append({
                 'transaction_id': trans.transaction_id,
                 'type' : 1,
                 'recipient': trans.sender_address,
@@ -80,14 +101,14 @@ class Node:
 
 
 		trans.transaction_outputs = outputs
-
-        for output in outputs:
+		
+		for output in outputs:
 			if sender not in self.utxos : self.utxos[sender] = []
 			self.utxos[sender].append(output)
-
-        self.wallet.transactions.append(trans)
-
-        return trans
+		
+		self.wallet.transactions.append(trans)
+		
+		return trans
 
 	def validate_transaction(self, transaction):
 			#use of signature and NBCs balance
@@ -126,7 +147,7 @@ class Node:
 				return False
 			
 			for utxo in utxos_to_remove: 
-            	self.utxos[utxo['recipient']].remove(utxo)
+				self.utxos[utxo['recipient']].remove(utxo)
 
 			#Create corresponding outputs
 			outputs = [{
@@ -157,14 +178,15 @@ class Node:
 
 			
 
-	def broadcast_transaction():
+	def broadcast_transaction(self, transaction):
+		utils.broadcast(transaction, 'transaction', self.network_info, self.myid)
+		return
+	
+	def broadcast_block(self, block):
+		utils.broadcast(block, 'block', self.network_info, self.myid)
+		return
 
-
-
-
-
-
-	def add_transaction_to_block():
+	#def add_transaction_to_block():
 		#if enough transactions  mine
 
 
@@ -172,25 +194,74 @@ class Node:
 	#def mine_block():
 
 
+	# def valid_proof(.., difficulty=MINING_DIFFICULTY):
 
-	def broadcast_block():
+	def validate_first_chain(self, chain):
+		rev_chain = reversed(chain)
+		length = len(rev_chain)
+		for i in length:
+			valid_block = rev_chain[i].validate_block(chain[0:length-i-1])
+			if not valid_block:
+				return False
 
-
-		
-
-	def valid_proof(.., difficulty=MINING_DIFFICULTY):
-
-
-
-
-	#concencus functions
-
-	def valid_chain(self, chain):
-		#check for the longer chain accroose all nodes
+		return True
 
 
-	def resolve_conflicts(self):
+	#concensus functions
+
+	def find_longest_chain(self, chain):
+		#check for the longer chain across all nodes
+		lengths = [(self.myid, len(self.blockchain))]
+		network_problem = False
+
+		for node in self.network_info:
+			if node["id"] == self.myid:
+				continue 
+			ip = node['address'][0]
+			port = node['address'][1]
+			address = ip + ":" + port
+			response = requests.get('{}/chain/length'.format(address))
+
+			if response.status_code != 200:
+				print(node["id"], ":", response.status_code, "Problem receiving chain length!")
+				network_problem = True
+				continue
+
+			lengths.append((node["id"], response.json()['length']))
+
+		max_len_owner = max(lengths, key=itemgetter(1))[0]
+		return (max_len_owner,network_problem)
+	
+	
+	def resolve_conflict(self):
 		#resolve correct chain
+		longest_chain_owner, problem = self.find_longest_chain()
+
+		if problem:
+			return False		
+		if(longest_chain_owner == self.myid):
+			return True
+		
+		for node in self.network_info:
+			if node['id'] == longest_chain_owner:
+				ip = node['address'][0]
+				port = node['address'][1]
+				address = ip + ":" + port
+				break
+		
+		response = requests.get('{}/chain/replace'.format(address))
+
+		if response.status_code != 200:
+			print(node["id"], ":", response.status_code, "Problem receiving chain!")
+			return False
+
+		new_chain = response.json()['chain']
+
+		self.blockchain = new_chain
+
+		return True
+						
+
 
 
 
