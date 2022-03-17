@@ -4,6 +4,8 @@ import config
 from pymerkle import MerkleTree
 import time
 from random import randint
+from copy import deepcopy
+import json
 
 class Block:
     def __init__(self, index, previousHash, listOfTransactions, timestamp=None, currentHash=None, nonce=None):
@@ -15,6 +17,10 @@ class Block:
         self.nonce = nonce
         self.listOfTransactions = listOfTransactions
 
+    def to_json(self):
+        block_dict = deepcopy(self.__dict__)
+        block_dict['listOfTransactions'] = [transaction.to_json() for transaction in block_dict['listOfTransactions']]
+        return json.dumps(block_dict)
 
     def mine_block(self):
         merkleTree = MerkleTree()

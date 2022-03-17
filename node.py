@@ -18,7 +18,8 @@ class Node:
 		#self.NBCs
 		self.wallet = None
 		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
-		self.utxos = []
+		self.curr_utxos = []
+		self.prev_val_utxos = []
 
 
 	#def create_new_block():
@@ -27,7 +28,8 @@ class Node:
 		#create a wallet for this node, with a public key and a private key
 		self.wallet = Wallet((ip,port))
 
-	def register_node_to_ring(self, info_list):
+# TODO
+	def update_network_info(self, info_list):
 		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
 		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
 		for info in info_list:
@@ -47,14 +49,16 @@ class Node:
 			'recipient' : genesis_transaction.recipient_address , 
 			'amount' : genesis_transaction.amount }]
 		genesis_transaction.outputs = [genesis_utxo]
-
+		
+		# First VALID block
 		genesis_block = Block(1, b'1', [genesis_transaction], nonce = 0,currentHash = b'1')
-		self.utxos[self.wallet.public_key] = genesis_utxo 
+		self.curr_utxos[self.wallet.public_key] = genesis_utxo
+		self.prev_val_utxos = self.curr_utxos 
 		self.blockchain.append(genesis_block)
 		return 
 		
 
-	def create_transaction(self, receiver, signature, amount):
+	def create_transaction(self, receiver, amount):
 		sender = self.wallet.public_key
 		inputs = []
 
@@ -72,7 +76,7 @@ class Node:
         
 		if current_balance < amount:
 			print('NBCs in wallet not enough! Requested ', amount, 'but have', coins, '!')
-			return (False)
+			return False
 			
 		
 		for utxo in utxos_to_remove: 
@@ -112,12 +116,16 @@ class Node:
 
 	def validate_transaction(self, transaction):
 			#use of signature and NBCs balance
-			valid_signature = transaction.verify_signature()
+			try:
+				valid_signature = transaction.verify_signature()
 
-			if not valid_signature:
-				print('Invalid Signature!')
-				self.lock.release()
-				return #(None,False) TODO
+				if not valid_signature:
+					self.lock.release()
+					raise Exception('Invalid Signature!')
+					
+			except Exception as e:	
+				print(str(e))	
+				return False
 
             #try finding each input in UTXOs and check if enough money exists
 			try : 
@@ -179,12 +187,50 @@ class Node:
 			
 
 	def broadcast_transaction(self, transaction):
-		utils.broadcast(transaction, 'transaction', self.network_info, self.myid)
+		utils.broadcast(transaction.to_json(), 'transaction', self.network_info, self.myid)
 		return
 	
 	def broadcast_block(self, block):
 		utils.broadcast(block, 'block', self.network_info, self.myid)
 		return
+
+	def create_and_broadcast_transaction(self, receiver_key, receiver_id, amount):
+		print("Transaction: {} gives {} to {}!".format(self.myid, amount, receiver_id))
+		transaction = self.create_transaction(receiver_key,amount)
+		if transaction == False:
+			return transaction
+
+		result = self.broadcast_transaction(transaction)
+
+		#check if we need to mine 
+		if len(self.wallet.transactions) == config.CAPACITY:
+			print('Node '+ self.myid + ' mining...')
+			trans_ids = [t.transaction_id for t in self.wallet.transactions]
+			print(trans_ids)
+			result = self.mine_and_broadcast_block() 
+		
+		return result
+
+	def initialize_network(self):
+		# broadcast info ring to all nodes 
+		# including initial chain (genesis block only)
+		# utxos as formed until now
+		data = {'chain': [block.to_json() for block in node.blockchain], 
+				'network_info': self.network_info,
+				'utxos': self.prev_val_utxos}
+
+		utils.broadcast(data, 'network_info', self.network_info, self.myid)		
+
+		#make initial transactions of 100 NBCs
+		for node in self.network_info:
+			if node['id'] == self.myid:
+				continue
+			result = self.create_and_broadcast_transaction(node['pub_key'], node['id'], 100)
+
+		return result
+		
+	def mine_and_broadcast_block(self):
+		pass
 
 	#def add_transaction_to_block():
 		#if enough transactions  mine
@@ -196,15 +242,15 @@ class Node:
 
 	# def valid_proof(.., difficulty=MINING_DIFFICULTY):
 
-	def validate_first_chain(self, chain):
-		rev_chain = reversed(chain)
-		length = len(rev_chain)
-		for i in length:
-			valid_block = rev_chain[i].validate_block(chain[0:length-i-1])
-			if not valid_block:
-				return False
+	# def validate_first_chain(self, chain):
+	# 	rev_chain = reversed(chain)
+	# 	length = len(rev_chain)
+	# 	for i in length:
+	# 		valid_block = rev_chain[i].validate_block(chain[0:length-i-1])
+	# 		if not valid_block:
+	# 			return False
 
-		return True
+	# 	return True
 
 
 	#concensus functions
