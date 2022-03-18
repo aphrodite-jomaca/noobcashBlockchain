@@ -8,27 +8,18 @@ from block import Block
 from transaction import Transaction
 import config
 
+from argparse import ArgumentParser
 
-### JUST A BASIC EXAMPLE OF A REST API WITH FLASK
-
-
-
+parser = ArgumentParser()
+parser.add_argument('host', type=str) #the host of the address
+parser.add_argument('port', type=int) #the port of the address
+args = parser.parse_args()
 app = Flask(__name__)
 # CORS(app)
 
 node = Node()
 
-
-#.......................................................................................
-
-# get all transactions in the blockchain
-
-# @app.route('/transactions/get', methods=['GET'])
-# def get_transactions():
-#     transactions = blockchain.transactions
-
-#     response = {'transactions': transactions}
-#     return jsonify(response), 200
+#------------------------------------------------------------------------------------------------
 
 @app.route('/bootstrap/start', methods=['POST'])
 def start_bootstrap():
@@ -103,12 +94,40 @@ def receive_network_info():
     return make_response('Got all necessary info to start.',200)
 
 
-@app.route('/block', methods=['POST'])
-def get_chain_length():
+@app.route('/block/receive', methods=['POST'])
+def receive_block():
+    data = json.loads(request.get_json())
+    block = Block(**json.loads(data))
+    block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
+    block.nonce = str(block.nonce).encode()
+    block.currentHash = str(block.currentHash).encode()
+    block.previousHash = str(block.previousHash).encode()
+    
+    if not node.add_block(block):
+        print('Could not add block')
 
-    return
+    return make_response('Block received',200)
+    
 
+@app.route('/block/create', methods=['POST'])
+def create_mined_block():
+    data = json.loads(request.get_json())
+    block = Block(**json.loads(data))
+    block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
+    block.nonce = str(block.nonce).encode()
+    block.currentHash = str(block.currentHash).encode()
+    block.previousHash = str(block.previousHash).encode()
 
+    if not node.add_block(block):
+        print('Could not add block')
+    else:
+        if not (node.broadcast_block(block)):
+            print('Could not broadcast block as a result of mining')
+        print ('Successful mining and broadcast')
+
+    return make_response('Block received',200)
+
+#TODO
 @app.route('/chain/replace', methods=['GET'])
 def get_chain():
     tsifsa = 'tsifsa' 
@@ -129,12 +148,7 @@ def receive_transaction():
 
     return make_response('Transaction received.',200)
 
-
-@app.route('/block', methods=['POST'])
-def receive_block():
-   
-
-    return
+# ------------------CLI------------------------
 
 @app.route('/cli/transaction', methods=['POST'])
 def post_transaction():
@@ -156,15 +170,21 @@ def post_transaction():
 
     return make_response(json.dumps(result), 200) #TODO
 
+@app.route('/cli/view', methods=['GET'])
+def view_transaction():
+    result = node.view_transactions()
+    return make_response(json.dumps(result), 200) 
 
-# run it once fore every node
+@app.route('/cli/balance', methods=['GET'])
+def show_balance():
+    balance = node.wallet.wallet_balance()
+    if balance < 0:
+        return make_response('Negative balance. WTF?', 200) 
+    result = {'balance': balance}
+    return make_response(json.dumps(result), 200)
+
+
+# run it once for every node
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
-    args = parser.parse_args()
-    port = args.port
-
-    app.run(host='127.0.0.1', port=port)
+    app.run(host = args.host, port=args.port, debug = False,threaded = True)

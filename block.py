@@ -1,5 +1,5 @@
 from node import Node
-from Crypto.Hash import SHA384
+from Crypto.Hash import SHA256
 import config
 from pymerkle import MerkleTree
 import time
@@ -46,7 +46,7 @@ class Block:
         self.currentHash = computed_hash.encode()
         self.nonce = nonce
         self.timestamp = timestamp    
-
+        return 
 
     def validate_currentHash(self):
     # validate block hash value
@@ -57,7 +57,7 @@ class Block:
 
         header = self.index + self.previousHash + self.nonce+ merkleRoot + self.timestamp
 
-        h = SHA384.new()
+        h = SHA256.new()
         computed_hash = h.new(h.new(header).digest()).hexdigest()
         computed_hash = str(computed_hash[::-1]) 
         return (int(computed_hash[0:config.DIFFICULTY],16) == 0)

@@ -5,6 +5,7 @@ import requests
 from operator import itemgetter
 import utils
 import config
+import miner
 
 from threading import RLock
 
@@ -15,7 +16,7 @@ class Node:
 		self.blockchain = []
 		self.current_id_count = 0
 		self.myid=myid
-		#self.NBCs
+		self.miner_pid = -1
 		self.wallet = None
 		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
 		self.curr_utxos = []
@@ -183,8 +184,11 @@ class Node:
 			self.wallet.transactions.append(transaction)
 
 			return True
-
 			
+	def view_transactions(self):
+		last_valid_block = self.blockchain[-1]
+		transactions = {'transactions': [t.to_json() for t in last_valid_block.listOfTransactions]}
+		return transactions
 
 	def broadcast_transaction(self, transaction):
 		utils.broadcast(transaction.to_json(), 'transaction', self.network_info, self.myid)
@@ -207,7 +211,7 @@ class Node:
 			print('Node '+ self.myid + ' mining...')
 			trans_ids = [t.transaction_id for t in self.wallet.transactions]
 			print(trans_ids)
-			result = self.mine_and_broadcast_block() 
+			result = self.start_mining() 
 		
 		return result
 
@@ -229,31 +233,29 @@ class Node:
 
 		return result
 		
-	def mine_and_broadcast_block(self):
+	def start_mining(self):
+		# copy_trans = deepcopy(self.transactions) 
+		for node in self.network_info:
+			if node['id'] == self.myid:
+				ip = node['address'][0]
+				port = node['address'][1]
+				address = ip + ':' + port
+
+		trans = self.wallet.transactions[0:config.CAPACITY]
+		block = Block(len(self.blockchain)+1, self.blockchain[-1].currentHash, trans)
+		result = miner.start_your_engines_and_may_the_best_woman_WIN(self.miner_pid, address, block)
+
+		if result == False or result == True:
+			return False
+		else:
+			self.miner_pid = result
+			return True
+
+
+	#consensus functions
+
+	def add_block(self):
 		pass
-
-	#def add_transaction_to_block():
-		#if enough transactions  mine
-
-
-
-	#def mine_block():
-
-
-	# def valid_proof(.., difficulty=MINING_DIFFICULTY):
-
-	# def validate_first_chain(self, chain):
-	# 	rev_chain = reversed(chain)
-	# 	length = len(rev_chain)
-	# 	for i in length:
-	# 		valid_block = rev_chain[i].validate_block(chain[0:length-i-1])
-	# 		if not valid_block:
-	# 			return False
-
-	# 	return True
-
-
-	#concensus functions
 
 	def find_longest_chain(self, chain):
 		#check for the longer chain across all nodes
