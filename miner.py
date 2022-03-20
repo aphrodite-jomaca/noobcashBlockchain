@@ -8,7 +8,7 @@ from subprocess import Popen
 from signal import SIGTERM
 from Crypto.Hash import SHA256
 
-from node import Node
+
 from block import Block
 from transaction import Transaction
 

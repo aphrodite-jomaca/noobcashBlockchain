@@ -1,4 +1,3 @@
-from node import Node
 from Crypto.Hash import SHA256
 import config
 from pymerkle import MerkleTree

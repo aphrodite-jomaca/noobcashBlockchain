@@ -1,6 +1,5 @@
 import requests
 from flask import Flask, request, Blueprint, make_response
-from flask_cors import CORS
 import json
 
 from node import Node
@@ -31,7 +30,7 @@ def start_bootstrap():
     node.create_wallet(boot_data['IP'], boot_data['PORT'])
     node.network_info.append({'id': 0, 'address': (boot_data['IP'], boot_data['PORT']), 'pub_key': node.wallet.public_key})
     node.genesis() # Create genesis block and transaction
-    
+    print("Genesis commensed")
     return make_response(json.dumps({"id" : node.myid}), 201)
 
 
