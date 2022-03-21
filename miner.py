@@ -34,33 +34,14 @@ def stop(miner_pid):
             print('Stop miner with pid', miner_pid)
             os.kill(miner_pid, SIGTERM)
             return -1
+        else:
+            return True
     except OSError as e:
         print(f'Problem stopping miner: {e.errno}: {e}')
         return False
     except Exception as e:
         print(f'Problem stopping miner: {e}')
         return False
-
-def announce_nonce(host, transactions_json, nonce, sha, token, timestamp):
-    # NOTE: miner is a fragile process, it may get killed at any point
-    # dont start sending blocks around, if we die midway its gonna get bad
-    # just tell dad and exit, let him worry about sending crap around
-    api = f'{host}/create_block/'
-
-    # this will practically never return, host kills miner (us) when receiving a block
-    response = requests.post(api, {
-        'transactions': transactions_json,
-        'sha': sha,
-        'nonce': nonce,
-        'token': token,
-        'timestamp': timestamp
-    })
-
-    if response.status_code != 200:
-        print(f'miner.announce_nonce: request failed: {response.text}')
-
-    # FIXME: if we need to mine another block
-    exit(0)
 
 
 def mine_and_announce(address, block_json):

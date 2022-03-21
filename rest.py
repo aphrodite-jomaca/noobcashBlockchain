@@ -6,6 +6,7 @@ from node import Node
 from block import Block
 from transaction import Transaction
 import config
+import miner
 
 from argparse import ArgumentParser
 
@@ -81,7 +82,8 @@ def receive_network_info():
     #first chain is genesis block --> no validation
     
     node.prev_val_utxos = data['utxos']
-    node.curr_utxos = node.prev_val_utxos
+    node.curr_utxos = data['utxos']
+    node.genesis_utxos = data['utxos']
 
     node.blockchain = [Block(**json.loads(block)) for block in data['chain']]
     for block in node.blockchain :
@@ -89,6 +91,9 @@ def receive_network_info():
         block.nonce = str(block.nonce).encode()
         block.currentHash = str(block.currentHash).encode()
         block.previousHash = str(block.previousHash).encode()
+
+        #there should be only ONE block
+        node.genesis_block = block
 
     return make_response('Got all necessary info to start.',200)
 
@@ -102,8 +107,12 @@ def receive_block():
     block.currentHash = str(block.currentHash).encode()
     block.previousHash = str(block.previousHash).encode()
     
-    if not node.add_block(block):
-        print('Could not add block')
+    ret = miner.stop(node.miner_pid)
+
+    if ret != False:
+        with node.lock:
+            if not node.add_block(block):
+                print('Could not add block')
 
     return make_response('Block received',200)
     
@@ -126,6 +135,7 @@ def create_mined_block():
 
     return make_response('Block received',200)
 
+
 #TODO
 @app.route('/chain/replace', methods=['GET'])
 def get_chain():
@@ -133,6 +143,14 @@ def get_chain():
 
     response = {'chain': tsifsa}
     return json.dumps(response)
+
+@app.route('/chain/length', methods=['GET'])
+def get_chain():
+    tsifsa = 'tsifsa' 
+
+    response = {'chain': tsifsa}
+    return json.dumps(response)
+    
 
 @app.route('/transaction', methods=['POST'])
 def receive_transaction():

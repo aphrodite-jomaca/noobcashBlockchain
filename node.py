@@ -3,6 +3,7 @@ from wallet import Wallet
 from transaction import Transaction
 import requests
 from operator import itemgetter
+import copy
 import utils
 import config
 import miner
@@ -21,6 +22,8 @@ class Node:
 		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
 		self.curr_utxos = []
 		self.prev_val_utxos = []
+		self.genesis_block = None
+		self.genesis_utxos = None
 
 
 	#def create_new_block():
@@ -29,15 +32,14 @@ class Node:
 		#create a wallet for this node, with a public key and a private key
 		self.wallet = Wallet((ip,port))
 
-# TODO
 	def update_network_info(self, info_list):
 		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
 		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
 		for info in info_list:
 			if info['address'] == self.wallet.address:
 				self.myid = info['id']
-			else:
-				self.network_info.append(info)
+
+			self.network_info.append(info)
 				
 	
 	def genesis(self):
@@ -53,8 +55,12 @@ class Node:
 		
 		# First VALID block
 		genesis_block = Block(1, b'1', [genesis_transaction], nonce = 0,currentHash = b'1')
+		self.genesis_block = copy.deepcopy(genesis_block)
+
 		self.curr_utxos[self.wallet.public_key] = genesis_utxo
-		self.prev_val_utxos = self.curr_utxos 
+		self.prev_val_utxos[self.wallet.public_key] = genesis_utxo
+		self.genesis_utxos = copy.deepcopy(self.curr_utxos)
+
 		self.blockchain.append(genesis_block)
 		return 
 		
@@ -116,20 +122,24 @@ class Node:
 		return trans
 
 	def validate_transaction(self, transaction):
-			#use of signature and NBCs balance
-			try:
+		#use of signature and NBCs balance
+		try:
+			with self.lock:
+				if transaction in self.wallet.transactions:
+					return False
+
 				valid_signature = transaction.verify_signature()
 
 				if not valid_signature:
-					self.lock.release()
 					raise Exception('Invalid Signature!')
-					
-			except Exception as e:	
-				print(str(e))	
-				return False
+				
+		except Exception as e:	
+			print(str(e))	
+			return False
 
-            #try finding each input in UTXOs and check if enough money exists
-			try : 
+		#try finding each input in UTXOs and check if enough money exists
+		try :
+			with self.lock:
 				current_balance = 0
 				utxos_to_remove = []
 				for trans_input in transaction.transaction_inputs: 
@@ -143,47 +153,47 @@ class Node:
 							utxos_to_remove.append(utxo)
 							break
 
-                    #bug detected / wrong inputs
+					#bug detected / wrong inputs
 					if not present:
 						raise Exception('Cannot find Transaction Input in UTXOs')
 						
 				#detected double spending
 				if current_balance < transaction.amount:
 					raise Exception('Sender does not have enough NBCs!')
-			except Exception as e:
+		except Exception as e:
 
-				print(str(e))
-				return False
-			
-			for utxo in utxos_to_remove: 
-				self.utxos[utxo['recipient']].remove(utxo)
+			print(str(e))
+			return False
+		
+		for utxo in utxos_to_remove: 
+			self.utxos[utxo['recipient']].remove(utxo)
 
-			#Create corresponding outputs
-			outputs = [{
-					'transaction_id': transaction.transaction_id,
-					'type' : 0,
-					'recipient': transaction.recipient_address,
-					'amount': transaction.amount
-				}]
+		#Create corresponding outputs
+		outputs = [{
+				'transaction_id': transaction.transaction_id,
+				'type' : 0,
+				'recipient': transaction.recipient_address,
+				'amount': transaction.amount
+			}]
 
-			if (current_balance > transaction.amount):  
-				outputs.append({
-					'transaction_id': transaction.transaction_id,
-					'type' : 1,
-					'recipient': transaction.sender_address,
-					'amount': current_balance - transaction.amount
-				})
+		if (current_balance > transaction.amount):  
+			outputs.append({
+				'transaction_id': transaction.transaction_id,
+				'type' : 1,
+				'recipient': transaction.sender_address,
+				'amount': current_balance - transaction.amount
+			})
 
 
-			transaction.transaction_outputs = outputs
+		transaction.transaction_outputs = outputs
 
-			for output in outputs:
-				if output['recipient'] not in self.utxos : self.utxos[output['recipient']] = []
-				self.utxos[output['recipient']].append(output)
+		for output in outputs:
+			if output['recipient'] not in self.utxos : self.utxos[output['recipient']] = []
+			self.utxos[output['recipient']].append(output)
 
-			self.wallet.transactions.append(transaction)
+		self.wallet.transactions.append(transaction)
 
-			return True
+		return True
 			
 	def view_transactions(self):
 		last_valid_block = self.blockchain[-1]
@@ -253,9 +263,92 @@ class Node:
 
 
 	#consensus functions
+	def validate_chain(self, blockchain, transactions):
+		with self.lock:
+			# restart from genesis block
+			self.blockchain = [self.genesis_block]
+			self.curr_utxos = copy.deepcopy(self.genesis_utxos)
+			self.prev_val_utxos = copy.deepcopy(self.genesis_utxos)
 
-	def add_block(self):
-		pass
+			self.wallet.transactions = []
+
+			# valid chain = valid blocks  (Appendable) and valid transactions in queue
+			for block in blockchain:
+				# updates transactions in queue
+				res = self.add_block(block)
+				if not res:
+					return False
+
+			for t in transactions:
+				self.validate_transaction(t)
+
+			return True
+
+	def add_block(self, block):
+		with self.lock:
+			try:
+				# save me
+				# please
+				TRANSACTIONS_BACKUP = copy.deepcopy(self.wallet.transactions)
+				UTXOS_BACKUP = copy.deepcopy(self.curr_utxos)
+				BLOCKCHAIN_BACKUP = copy.deepcopy(self.blockchain)
+				VALID_UTXOS_BACKUP = copy.deepcopy(self.prev_val_utxos)
+
+				previous_block = self.blockchain[-1]
+				
+				if block.index != previous_block.index+1:
+					print('different index')
+				if len(block.transactions) != config.CAPACITY:
+					raise Exception('invalid block capacity')
+				if not block.validate_currentHash():
+					raise Exception('invalid proof of work')
+
+				if block.validate_previousHash(self.blockchain):
+
+					# start from utxos as of last block
+					self.curr_utxos = copy.deepcopy(self.prev_val_utxos)
+					self.wallet.transactions = []
+
+					for trans in block.listOfTransactions:
+						# validate, update utxos
+						valid_trans = self.validate_transaction(trans)
+						if not valid_trans:
+							raise Exception('Validating transaction failed!')
+
+						# remove transaction after validating
+						self.wallet.transactions.remove(trans)
+
+					# append block, update valid utxos
+					self.blockchain.append(block)
+					self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
+
+					# put lefto ver transactions in queue to mine next
+					for trans in TRANSACTIONS_BACKUP:
+						if trans not in block.listOfTransactions:
+							ret = self.validate_transaction(trans)
+
+					return True
+
+				else:
+					#CONFLICT HELP ME PLEASE
+					for ex_block in self.blockchain[:-1]:
+						if ex_block.currentHash == block.previousHash:
+							print("This block creates shorter chain, ignore.")
+							return False
+
+					# time to resolve conflict
+					ret = self.resolve_conflict()
+					#TODO
+
+			except Exception as e:
+				# restore state and return
+				self.wallet.transactions = TRANSACTIONS_BACKUP
+				self.blockchain = BLOCKCHAIN_BACKUP
+				self.curr_utxos = UTXOS_BACKUP
+				self.prev_val_utxos = VALID_UTXOS_BACKUP
+
+				print('Block Validation fail:', e)
+				return False
 
 	def find_longest_chain(self, chain):
 		#check for the longer chain across all nodes
@@ -277,35 +370,59 @@ class Node:
 
 			lengths.append((node["id"], response.json()['length']))
 
-		max_len_owner = max(lengths, key=itemgetter(1))[0]
-		return (max_len_owner,network_problem)
+		sorted_lengths = lengths.sort(key=lambda y: y[1], reverse=True)
+		max_len = sorted_lengths[0][1]
+		max_length_owners = [owner[0] for owner in sorted_lengths if owner[1] == max_len]
+
+		return (list(max_length_owners),network_problem)
 	
 	
 	def resolve_conflict(self):
 		#resolve correct chain
-		longest_chain_owner, problem = self.find_longest_chain()
+		with self.lock:
+			BLOCKCHAIN = copy.deepcopy(self.blockchain)
+			TRANSACTIONS = copy.deepcopy(self.wallet.transactions)
+			UTXOS = copy.deepcopy(self.curr_utxos)
+			VALID_UTXOS = copy.deepcopy(self.prev_val_utxos)
+			TRANSACTIONS_BACKUP = copy.deepcopy(self.wallet.transactions)
 
-		if problem:
-			return False		
-		if(longest_chain_owner == self.myid):
-			return True
-		
-		for node in self.network_info:
-			if node['id'] == longest_chain_owner:
-				ip = node['address'][0]
-				port = node['address'][1]
-				address = ip + ":" + port
-				break
-		
-		response = requests.get('{}/chain/replace'.format(address))
+			max_length_owners, problem = self.find_longest_chain()
 
-		if response.status_code != 200:
-			print(node["id"], ":", response.status_code, "Problem receiving chain!")
-			return False
+			if problem:
+				return False	
+				
+			#if my chain is already among max lengths, keep mine	
+			if self.myid in max_length_owners:
+				return True
 
-		new_chain = response.json()['chain']
+			for node in self.network_info:
+				if node['id'] in max_length_owners:
+					ip = node['address'][0]
+					port = node['address'][1]
+					address = ip + ":" + port
+				
+					try:
+						response = requests.get('{}/chain/replace'.format(address))
 
-		self.blockchain = new_chain
+						if response.status_code != 200:
+							print(node["id"], ":", response.status_code, "Problem receiving chain!")
+							return False
+
+						new_chain = response.json()['chain']
+						#TODO receive chain and convert to object NOT JSON
+
+						if not self.validate_chain(new_chain, TRANSACTIONS_BACKUP):
+							raise Exception('Received invalid chain')
+
+						#fix these
+						MAX_BLOCKCHAIN = copy.deepcopy(self.blockchain)
+						MAX_TRANSACTIONS = copy.deepcopy(self.wallet.transactions)
+						MAX_UTXOS = copy.deepcopy(self.curr_utxos)
+						MAX_VALID_UTXOS = copy.deepcopy(self.prev_val_utxos)
+						break
+					except Exception as e:
+						print(e)
+                #more assignments????
 
 		return True
 						
