@@ -1,9 +1,7 @@
 import os, sys
 import json
-import datetime
 import requests
 
-from random import seed, randint
 from subprocess import Popen
 from signal import SIGTERM
 from Crypto.Hash import SHA256

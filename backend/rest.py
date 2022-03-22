@@ -1,6 +1,7 @@
 import requests
-from flask import Flask, request, Blueprint, make_response
+from flask import Flask, request, make_response
 import json
+import copy
 
 from node import Node
 from block import Block
@@ -24,8 +25,8 @@ node = Node()
 @app.route('/bootstrap/start', methods=['POST'])
 def start_bootstrap():
     boot_data = json.loads(request.get_json())
-    config.DIFFICULTY = int(boot_data['DIFFICULTY'])
-    config.CAPACITY = int(boot_data['CAPACITY'])
+    # config.DIFFICULTY = int(boot_data['DIFFICULTY'])
+    # config.CAPACITY = int(boot_data['CAPACITY'])
     config.NODES = int(boot_data['NODES'])
     node.myid = 0
     node.create_wallet(boot_data['IP'], boot_data['PORT'])
@@ -59,8 +60,8 @@ def register_node():
 @app.route('/node/start', methods=['POST'])
 def start_node():
     node_data = json.loads(request.get_json())
-    config.DIFFICULTY = int(node_data['DIFFICULTY'])
-    config.CAPACITY = int(node_data['CAPACITY'])
+    # config.DIFFICULTY = int(node_data['DIFFICULTY'])
+    # config.CAPACITY = int(node_data['CAPACITY'])
     # Ids will be given later by bootstrap
     node.create_wallet(node_data['IP'], node_data['PORT'])
     # Node info will be given later by bootstrap
@@ -77,23 +78,25 @@ def start_node():
 @app.route('/network_info', methods=['POST'])
 def receive_network_info():
     data = json.loads(request.get_json())
-    node.update_network_info(data['network_info'])
 
-    #first chain is genesis block --> no validation
-    
-    node.prev_val_utxos = data['utxos']
-    node.curr_utxos = data['utxos']
-    node.genesis_utxos = data['utxos']
+    with node.lock:
+        node.update_network_info(data['network_info'])
 
-    node.blockchain = [Block(**json.loads(block)) for block in data['chain']]
-    for block in node.blockchain :
-        block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
-        block.nonce = str(block.nonce).encode()
-        block.currentHash = str(block.currentHash).encode()
-        block.previousHash = str(block.previousHash).encode()
+        #first chain is genesis block --> no validation
+        
+        node.prev_val_utxos = copy.deepcopy(data['utxos'])
+        node.curr_utxos = copy.deepcopy(data['utxos'])
+        node.genesis_utxos = copy.deepcopy(data['utxos'])
 
-        #there should be only ONE block
-        node.genesis_block = block
+        node.blockchain = [Block(**json.loads(block)) for block in data['chain']]
+        for block in node.blockchain :
+            block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
+            block.nonce = str(block.nonce).encode()
+            block.currentHash = str(block.currentHash).encode()
+            block.previousHash = str(block.previousHash).encode()
+
+            #there should be only ONE block
+            node.genesis_block = block
 
     return make_response('Got all necessary info to start.',200)
 
@@ -111,8 +114,47 @@ def receive_block():
 
     if ret != False:
         with node.lock:
-            if not node.add_block(block):
+            res, flag = node.add_block(block)
+            if not res:
                 print('Could not add block')
+                if flag == 2:
+                    return make_response('Invalid Info',403)
+            else:
+                print('Block Added')
+
+            capacity_reached = node.check_mining()
+
+        #in case of out-of order broadcasts of transactions
+        #some trans may not be validated
+        #try and find them from others
+
+        for participant in node.network_info:
+            if capacity_reached:
+                break
+            
+            try:
+                ip = participant['address'][0]
+                port = participant['address'][1]
+                address = ip + ':' + port
+
+                response = requests.get('{}/{}'.format(address, 'transaction/queued'))
+                if response.status_code != 200:
+                    raise Exception('Failed to receive potential pending transactions.')
+
+                pending_transactions = json.loads(response.json()['transactions'])
+
+                with node.lock:
+                    for t_json in pending_transactions:
+                        t = Transaction(**json.loads(t_json))
+                        ret = node.validate_transaction(t)
+
+                    capacity_reached = node.check_mining()
+            
+            except Exception as e:
+                print(e)
+
+        if not capacity_reached:
+            print('No new pending transactions, move on!')
 
     return make_response('Block received',200)
     
@@ -126,8 +168,11 @@ def create_mined_block():
     block.currentHash = str(block.currentHash).encode()
     block.previousHash = str(block.previousHash).encode()
 
-    if not node.add_block(block):
+    res, flag = node.add_block(block)
+    if not res:
         print('Could not add block')
+        if flag == 2:
+            return make_response('Invalid Info',403)
     else:
         if not (node.broadcast_block(block)):
             print('Could not broadcast block as a result of mining')
@@ -136,23 +181,19 @@ def create_mined_block():
     return make_response('Block received',200)
 
 
-#TODO
 @app.route('/chain/replace', methods=['GET'])
 def get_chain():
-    tsifsa = 'tsifsa' 
-
-    response = {'chain': tsifsa}
+    chain = [block.to_json() for block in node.blockchain]
+    response = {'chain': chain} 
     return json.dumps(response)
 
 @app.route('/chain/length', methods=['GET'])
 def get_chain():
-    tsifsa = 'tsifsa' 
-
-    response = {'chain': tsifsa}
-    return json.dumps(response)
+    chain_length = {'length' : len(node.blockchain)} 
+    return json.dumps(chain_length)
     
 
-@app.route('/transaction', methods=['POST'])
+@app.route('/transaction/receive', methods=['POST'])
 def receive_transaction():
     trans = Transaction(**json.loads(request.get_json())) 
     return_val = Transaction.validate_transaction(trans)
@@ -164,6 +205,12 @@ def receive_transaction():
         node.mine_and_broadcast_block()
 
     return make_response('Transaction received.',200)
+
+@app.route('/transaction/queued', methods=['GET'])
+def give_pending_transactions():
+    pending_transactions = [t.to_json() for t in  node.wallet.transactions]
+    response = {'transactions': json.dumps(pending_transactions)}
+    return make_response(response)
 
 # ------------------CLI------------------------
 
@@ -180,9 +227,9 @@ def post_transaction():
     if data['id'] >= config.NODES:
         return make_response('Invalid Node Id', 400)
 
-    for node in node.network_info:
-        if node['id'] == data['id']:
-            pub = node['pub_key']
+    for participant in node.network_info:
+        if participant['id'] == data['id']:
+            pub = participant['pub_key']
     result = node.create_and_broadcast_transaction(pub, data['id'], data['amount'])
 
     return make_response(json.dumps(result), 200) #TODO

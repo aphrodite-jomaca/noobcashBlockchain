@@ -2,11 +2,11 @@ from block import Block
 from wallet import Wallet
 from transaction import Transaction
 import requests
-from operator import itemgetter
 import copy
 import utils
 import config
 import miner
+import json
 
 from threading import RLock
 
@@ -26,8 +26,6 @@ class Node:
 		self.genesis_utxos = None
 
 
-	#def create_new_block():
-
 	def create_wallet(self, ip, port):
 		#create a wallet for this node, with a public key and a private key
 		self.wallet = Wallet((ip,port))
@@ -35,11 +33,13 @@ class Node:
 	def update_network_info(self, info_list):
 		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
 		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
-		for info in info_list:
-			if info['address'] == self.wallet.address:
-				self.myid = info['id']
+		with self.lock:
+			for info in info_list:
+				if info['address'] == self.wallet.address:
+					self.myid = info['id']
 
-			self.network_info.append(info)
+				self.network_info.append(info)
+		return
 				
 	
 	def genesis(self):
@@ -82,7 +82,7 @@ class Node:
 				break 
         
 		if current_balance < amount:
-			print('NBCs in wallet not enough! Requested ', amount, 'but have', coins, '!')
+			print('NBCs in wallet not enough! Requested ', amount, 'but have', current_balance, '!')
 			return False
 			
 		
@@ -142,6 +142,7 @@ class Node:
 			with self.lock:
 				current_balance = 0
 				utxos_to_remove = []
+				
 				for trans_input in transaction.transaction_inputs: 
 					present = False  
 
@@ -217,19 +218,23 @@ class Node:
 		result = self.broadcast_transaction(transaction)
 
 		#check if we need to mine 
+		result = self.check_mining()
+		return result
+
+	def check_mining(self):
 		if len(self.wallet.transactions) == config.CAPACITY:
 			print('Node '+ self.myid + ' mining...')
 			trans_ids = [t.transaction_id for t in self.wallet.transactions]
 			print(trans_ids)
 			result = self.start_mining() 
-		
 		return result
+
 
 	def initialize_network(self):
 		# broadcast info ring to all nodes 
 		# including initial chain (genesis block only)
 		# utxos as formed until now
-		data = {'chain': [block.to_json() for block in node.blockchain], 
+		data = {'chain': [block.to_json() for block in self.blockchain], 
 				'network_info': self.network_info,
 				'utxos': self.prev_val_utxos}
 
@@ -327,18 +332,18 @@ class Node:
 						if trans not in block.listOfTransactions:
 							ret = self.validate_transaction(trans)
 
-					return True
+					return (True, 1)
 
 				else:
 					#CONFLICT HELP ME PLEASE
 					for ex_block in self.blockchain[:-1]:
 						if ex_block.currentHash == block.previousHash:
 							print("This block creates shorter chain, ignore.")
-							return False
+							return (False, 1)
 
 					# time to resolve conflict
 					ret = self.resolve_conflict()
-					#TODO
+					return (ret, 1)
 
 			except Exception as e:
 				# restore state and return
@@ -348,7 +353,7 @@ class Node:
 				self.prev_val_utxos = VALID_UTXOS_BACKUP
 
 				print('Block Validation fail:', e)
-				return False
+				return (False, 2)
 
 	def find_longest_chain(self, chain):
 		#check for the longer chain across all nodes
@@ -408,21 +413,33 @@ class Node:
 							print(node["id"], ":", response.status_code, "Problem receiving chain!")
 							return False
 
-						new_chain = response.json()['chain']
-						#TODO receive chain and convert to object NOT JSON
+						new_chain_json = response.json()['chain']
+						new_chain = [Block(**json.loads(block)) for block in new_chain_json]
+
+						for block in new_chain :
+							block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
+							block.nonce = str(block.nonce).encode()
+							block.currentHash = str(block.currentHash).encode()
+							block.previousHash = str(block.previousHash).encode()
 
 						if not self.validate_chain(new_chain, TRANSACTIONS_BACKUP):
 							raise Exception('Received invalid chain')
 
-						#fix these
-						MAX_BLOCKCHAIN = copy.deepcopy(self.blockchain)
-						MAX_TRANSACTIONS = copy.deepcopy(self.wallet.transactions)
-						MAX_UTXOS = copy.deepcopy(self.curr_utxos)
-						MAX_VALID_UTXOS = copy.deepcopy(self.prev_val_utxos)
+						#we accept first valid chain with max_len 
+						#but in case of no valid chain (???) we revert to initial chain (ours)
+
+						BLOCKCHAIN = copy.deepcopy(self.blockchain)
+						TRANSACTIONS = copy.deepcopy(self.wallet.transactions)
+						UTXOS = copy.deepcopy(self.curr_utxos)
+						VALID_UTXOS = copy.deepcopy(self.prev_val_utxos)
 						break
 					except Exception as e:
 						print(e)
-                #more assignments????
+
+				self.blockchain = BLOCKCHAIN
+				self.transactions = TRANSACTIONS
+				self.utxos = UTXOS
+				self.valid_utxos = VALID_UTXOS
 
 		return True
 						

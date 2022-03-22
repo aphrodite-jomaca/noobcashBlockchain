@@ -1,17 +1,8 @@
-# from collections import OrderedDict
-
-# import binascii
-
-# import Crypto
-import Crypto.Random
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 import base64
 import json
-
-# import requests
-# from flask import Flask, jsonify, request, render_template
 
 
 class Transaction:
