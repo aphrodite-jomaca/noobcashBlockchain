@@ -39,51 +39,78 @@ except Exception as e:
 
 #---------------------------------------COMMANDS----------------------------------------------------
 
-# Enter main loop
 while True:
-    cli_input = input("(noob-cli)> ")
+    cli_input = input("(noob-cli)> ").strip()
     print(cli_input)
 
-    if cli_input.startswith('t'):
-        # create a new transaction
-        parts = cli_input.split()
-
+    if cli_input.startswith('t '):
         try:
-            participants = requests.get(f'{HOST}/get_balance/').json()
-            recepient = participants[parts[1]]['pubkey']
-            amount = parts[2]
-        except:
+            keyword, rec_id, amount = cli_input.split()
+        except ValueError as e:
+            print('Input should be `t <recipient_id> <amount>')
             continue
 
-        API = f'{HOST}/create_transaction/'
-        response = requests.post(API, {
-            'token': TOKEN,
-            'recepient': recepient,
-            'amount': amount
-        })
+        url = '{}/cli/transaction/'.format(IP_LOCAL)
+        json_data = {'id': rec_id, 'amount': amount}
+
+        response = requests.post(url, json_data)
 
         if response.status_code == 200:
-            print('OK.')
+            print('Transaction Complete.')
         else:
-            print(f'Error: {response.text}')
+            print('Problem completing transaction: {}'.format(response.text))
 
     elif cli_input == 'view':
-        # print list of transactions from last validated block
-        API = f'{HOST}/get_transactions/'
-        transactions = requests.get(API).json()['transactions']
+        url = '{}/cli/view'.format(IP_LOCAL)
+        transactions = requests.get(url).json()['transactions']
 
-        for tx in transactions:
-            print(f'{tx["sender_id"]}\t->\t{tx["recepient_id"]}\t{tx["amount"]}\tNBC\t{tx["id"][:10]}')
+        for t in transactions:
+            print('{}:  Sender: {}, Recipient: {}, Amount: {} NBCs.'.format(t['transaction_id'][:10], t['sender_address'], t['recipient_address'], t['amount']))
 
     elif cli_input == 'balance':
-        # print list of participants with their balance as of the last validated block
-        balance = requests.get(f'{HOST}/get_balance/').json()
+        url = '{}/cli/balance'.format(IP_LOCAL)
+        balance = requests.get(url).json()['balance']
 
-        for id, p in balance.items():
-            print(f'{"* " if p["this"] else "  "}{id}\t({p["pubkey"][100:120]})\t{p["host"]}\t{p["amount"]}\tNBC')
+        print('You have {} NBCs left.'.format(balance))
+    
+    elif cli_input.startswith('test'):
+        try:
+            keyword, filename = cli_input.split()
+        except ValueError as e:
+            print("Input should be `test <filename>`")
+
+        try:
+            with open(filename, 'r') as fin:
+                for line in fin:
+                    id, amount = line.split()
+                    rec_id = id[2:]
+
+                    url = '{}/cli/transaction'.format(IP_LOCAL)
+                    json_data = {'id': rec_id, 'amount': amount}
+
+                    response = requests.post(url, json_data)
+
+                    if response.status_code == 200:
+                        print('Transaction Complete.')
+                    else:
+                        print('Problem completing transaction: {}'.format(response.text))
+        except Exception as e:
+            print('Problem opening file: {}'.format(e))
 
     elif cli_input == 'help':
-        help_message = ''
+        help_message = '''
+        Usage:
+        cli.py <HOST_IP> <PORT> -n <NODES>  Start bootstrap node with NODES number of nodes
+        cli.py <HOST_IP> <PORT>             Start simple node
+        
+       Commands:
+        `t <RECIPIENT_ID> <AMOUNT>`         Send AMOUNT NBCs to recipient with id: RECIPIENT_ID
+        `view`                              View all valid transactions from the last block
+        `balance`                           View your own balance
+        `test <FILENAME>`                   Run tests in FILENAME
+        `help`                              Help message
+        `exit`                              Exit NOOB-CLI
+        '''
         print(help_message)
 
     elif cli_input == 'exit':

@@ -199,6 +199,17 @@ class Node:
 	def view_transactions(self):
 		last_valid_block = self.blockchain[-1]
 		transactions = {'transactions': [t.to_json() for t in last_valid_block.listOfTransactions]}
+
+		key_dict = {}
+		for node in self.network_info:
+			key_dict[node['pub_key']] = node['id']
+
+		for trans in transactions:
+			pub_sender = trans['sender_address']
+			pub_recipient = trans['recipient_address']
+			trans['sender_address'] = key_dict[pub_sender]
+			trans['recipient_address'] = key_dict[pub_recipient]
+
 		return transactions
 
 	def broadcast_transaction(self, transaction):
@@ -224,7 +235,7 @@ class Node:
 	def check_mining(self):
 		if len(self.wallet.transactions) == config.CAPACITY:
 			print('Node '+ self.myid + ' mining...')
-			trans_ids = [t.transaction_id for t in self.wallet.transactions]
+			trans_ids = [t.transaction_id[:10] for t in self.wallet.transactions]
 			print(trans_ids)
 			result = self.start_mining() 
 		return result
