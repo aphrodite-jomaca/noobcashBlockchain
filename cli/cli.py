@@ -4,6 +4,7 @@ import os
 import requests
 import argparse
 import sys
+import json
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -27,9 +28,9 @@ NODES = args.n
 #----------------------------------------START------------------------------------------------------
 
 try:
-    url = '{}/bootstrap/start'.format(IP_LOCAL) if NODES else '{}/node/start'.format(HOST_LOCAL)
+    url = '{}/bootstrap/start'.format(IP_LOCAL) if NODES else '{}/node/start'.format(IP_LOCAL)
     json_data = {'NODES': NODES, 'IP': IP, 'PORT': PORT} if NODES else {'IP': IP, 'PORT': PORT}
-    response = requests.post(url, json_data)
+    response = requests.post(url, json = json.dumps(json_data))
     if response.status_code != 200:
         raise Exception('{}: Could not connect to {}!'.format(response.status_code, IP))
 except Exception as e:
@@ -52,7 +53,7 @@ while True:
         url = '{}/cli/transaction/'.format(IP_LOCAL)
         json_data = {'id': rec_id, 'amount': amount}
 
-        response = requests.post(url, json_data)
+        response = requests.post(url, json=json.dumps(json_data))
 
         if response.status_code == 200:
             print('Transaction Complete.')
@@ -87,15 +88,16 @@ while True:
                     url = '{}/cli/transaction'.format(IP_LOCAL)
                     json_data = {'id': rec_id, 'amount': amount}
 
-                    response = requests.post(url, json_data)
+                    response = requests.post(url, json=json.dumps(json_data))
 
                     if response.status_code == 200:
                         print('Transaction Complete.')
                     else:
                         print('Problem completing transaction: {}'.format(response.text))
-                    print('All transactions sent. Wait until finished to get stats.')
+                print('All transactions sent. Wait until finished to get stats.')
         except Exception as e:
             print('Problem opening file: {}'.format(e))
+            
     elif cli_input == 'stats':
         url = '{}/cli/statistics'.format(IP_LOCAL)
         response = requests.get(url).json()
