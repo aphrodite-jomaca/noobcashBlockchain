@@ -1,6 +1,7 @@
 from block import Block
 from wallet import Wallet
 from transaction import Transaction
+import time
 import requests
 import copy
 import utils
@@ -24,6 +25,9 @@ class Node:
 		self.prev_val_utxos = []
 		self.genesis_block = None
 		self.genesis_utxos = None
+		self.total_block_time = 0
+		self.all_trans_ids = set()
+		self.total_trans_time = 0
 
 
 	def create_wallet(self, ip, port):
@@ -118,6 +122,7 @@ class Node:
 			self.utxos[sender].append(output)
 		
 		self.wallet.transactions.append(trans)
+		self.all_trans_ids.add(trans.transaction_id)
 		
 		return trans
 
@@ -125,6 +130,7 @@ class Node:
 		#use of signature and NBCs balance
 		try:
 			with self.lock:
+				self.all_trans_ids.add(transaction.transaction_id)
 				if transaction in self.wallet.transactions:
 					return False
 
@@ -305,6 +311,7 @@ class Node:
 			try:
 				# save me
 				# please
+				start_time = time.time()
 				TRANSACTIONS_BACKUP = copy.deepcopy(self.wallet.transactions)
 				UTXOS_BACKUP = copy.deepcopy(self.curr_utxos)
 				BLOCKCHAIN_BACKUP = copy.deepcopy(self.blockchain)
@@ -342,7 +349,9 @@ class Node:
 					for trans in TRANSACTIONS_BACKUP:
 						if trans not in block.listOfTransactions:
 							ret = self.validate_transaction(trans)
-
+					print("Block has been added to the chain!")
+					end_time = time.time()
+					self.total_block_time += end_time - start_time
 					return (True, 1)
 
 				else:
@@ -354,6 +363,10 @@ class Node:
 
 					# time to resolve conflict
 					ret = self.resolve_conflict()
+					if ret == True:
+						print("Block has been added to the chain!")
+						end_time = time.time()
+						self.total_block_time += end_time - start_time
 					return (ret, 1)
 
 			except Exception as e:
@@ -409,7 +422,8 @@ class Node:
 				
 			#if my chain is already among max lengths, keep mine	
 			if self.myid in max_length_owners:
-				return True
+				print("Kept my chain.")
+				return False
 
 			for node in self.network_info:
 				if node['id'] in max_length_owners:

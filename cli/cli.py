@@ -94,8 +94,16 @@ while True:
                         print('Transaction Complete.')
                     else:
                         print('Problem completing transaction: {}'.format(response.text))
+                    print('All transactions sent. Wait until finished to get stats.')
         except Exception as e:
             print('Problem opening file: {}'.format(e))
+    elif cli_input == 'stats':
+        url = '{}/cli/statistics'.format(IP_LOCAL)
+        response = requests.get(url).json()
+        avg_block_time = response['avg_block_time']
+        throughput = response['throughput']
+
+        print('Average Block time: {}, Throughput: {}.'.format(avg_block_time, throughput))
 
     elif cli_input == 'help':
         help_message = '''
@@ -108,6 +116,7 @@ while True:
         `view`                              View all valid transactions from the last block
         `balance`                           View your own balance
         `test <FILENAME>`                   Run tests in FILENAME
+        `stats`                             View average block time and throughput after tests
         `help`                              Help message
         `exit`                              Exit NOOB-CLI
         '''

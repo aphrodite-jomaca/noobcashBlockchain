@@ -4,7 +4,7 @@ import requests
 
 from subprocess import Popen
 from signal import SIGTERM
-from Crypto.Hash import SHA256
+import time
 
 
 from block import Block
@@ -51,7 +51,9 @@ def mine_and_announce(address, block_json):
 
     block.mine_block()
 
-    response = requests.post('{}/{}'.format(address, 'block/create'), json=block.to_json())
+    json_data = {'block': block.to_json(), 'time': time.time()}
+
+    response = requests.post('{}/{}'.format(address, 'block/create'), json=json_data)
 
     if response.status_code != 200:
         print(f'Announcing block failed: {response.text}')

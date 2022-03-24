@@ -1,7 +1,9 @@
+from audioop import avg
 import requests
 from flask import Flask, request, make_response
 import json
 import copy
+import time
 
 from node import Node
 from block import Block
@@ -19,6 +21,8 @@ app = Flask(__name__)
 # CORS(app)
 
 node = Node()
+first = True
+start_tp = 0
 
 #------------------------------------------------------------------------------------------------
 
@@ -111,6 +115,7 @@ def receive_block():
     block.previousHash = str(block.previousHash).encode()
     
     ret = miner.stop(node.miner_pid)
+    node.total_trans_time = time.time()
 
     if ret != False:
         with node.lock:
@@ -156,12 +161,16 @@ def receive_block():
         if not capacity_reached:
             print('No new pending transactions, move on!')
 
+    print('All transactions currently in the network: '+ len(node.all_trans_ids))
+
     return make_response('Block received',200)
     
 
 @app.route('/block/create', methods=['POST'])
 def create_mined_block():
-    data = json.loads(request.get_json())
+    data = json.loads(request.get_json()['block'])
+    node.total_trans_time = request.get_json()['time']
+
     block = Block(**json.loads(data))
     block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
     block.nonce = str(block.nonce).encode()
@@ -177,6 +186,8 @@ def create_mined_block():
         if not (node.broadcast_block(block)):
             print('Could not broadcast block as a result of mining')
         print ('Successful mining and broadcast')
+
+    print('All transactions currently in the network: '+ len(node.all_trans_ids))
 
     return make_response('Block received',200)
 
@@ -216,6 +227,9 @@ def give_pending_transactions():
 
 @app.route('/cli/transaction', methods=['POST'])
 def post_transaction():
+    if first == True:
+        start_tp = time.time()
+        first = False
     data = json.loads(request.get_json())
     try:
         amount = int(data['amount'])
@@ -245,6 +259,15 @@ def show_balance():
     if balance < 0:
         return make_response('Negative balance. WTF?', 200) 
     result = {'balance': balance}
+    return make_response(json.dumps(result), 200)
+
+@app.route('/cli/statistics', methods=['GET'])
+def get_time_stats():
+    avg_block_time = node.total_block_time/len(node.blockchain)
+    valid_trans = len(node.blockchain)*config.CAPACITY
+    throughput = (node.total_trans_time - start_tp)/valid_trans
+    
+    result = {'avg_block_time': avg_block_time, 'throughput': throughput}
     return make_response(json.dumps(result), 200)
 
 
