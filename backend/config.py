@@ -1,0 +1,3 @@
+DIFFICULTY = 2
+CAPACITY = 3
+NODES = None

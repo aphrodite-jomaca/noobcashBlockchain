@@ -199,7 +199,7 @@ def get_chain():
     return json.dumps(response)
 
 @app.route('/chain/length', methods=['GET'])
-def get_chain():
+def get_chain_length():
     chain_length = {'length' : len(node.blockchain)} 
     return json.dumps(chain_length)
     

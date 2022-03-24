@@ -3,7 +3,6 @@
 import os
 import requests
 import argparse
-import config
 import sys
 
 
