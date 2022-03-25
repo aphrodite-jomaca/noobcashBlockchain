@@ -19,6 +19,9 @@ class Block:
     def to_json(self):
         block_dict = deepcopy(self.__dict__)
         block_dict['listOfTransactions'] = [transaction.to_json() for transaction in block_dict['listOfTransactions']]
+        block_dict['previousHash'] = block_dict['previousHash'].decode("utf-8")
+        block_dict['currentHash'] = block_dict['currentHash'].decode("utf-8")
+        block_dict['timestamp'] = block_dict['timestamp'].decode("utf-8")
         return json.dumps(block_dict)
 
     def mine_block(self):

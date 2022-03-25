@@ -23,7 +23,11 @@ class Transaction:
     
 
     def to_json(self):
-        return json.dumps(self.__dict__)
+        trans_dict = self.__dict__
+        if trans_dict['signature'] != None:
+                #trans_dict['transaction_id'] = trans_dict['transaction_id'].decode("utf-8")
+                trans_dict['signature'] = trans_dict['signature'].decode("utf-8")
+        return json.dumps(trans_dict)
 
     def create_transaction_id(self):
          self.transaction_id = str(SHA256.new(self.to_json().encode()).hexdigest())

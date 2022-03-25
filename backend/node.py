@@ -77,9 +77,9 @@ class Node:
 		current_balance = 0
 		utxos_to_remove = []
 		
-		for utxo in self.utxos[sender]:
+		for utxo in self.curr_utxos[sender]:
 			current_balance += utxo['amount']
-			inputs.append(utxo['transaction_id'] + ':' + utxo['type'])
+			inputs.append(utxo['transaction_id'] + ':' + str(utxo['type']))
 			utxos_to_remove.append(utxo)
 			
 			if current_balance >= amount :
@@ -91,7 +91,7 @@ class Node:
 			
 		
 		for utxo in utxos_to_remove: 
-			self.utxos[sender].remove(utxo)
+			self.curr_utxos[sender].remove(utxo)
 
         #If yes, create transaction
 		trans = Transaction(sender, receiver, amount, inputs)
@@ -118,8 +118,8 @@ class Node:
 		trans.transaction_outputs = outputs
 		
 		for output in outputs:
-			if sender not in self.utxos : self.utxos[sender] = []
-			self.utxos[sender].append(output)
+			if sender not in self.curr_utxos : self.curr_utxos[sender] = []
+			self.curr_utxos[sender].append(output)
 		
 		self.wallet.transactions.append(trans)
 		self.all_trans_ids.add(trans.transaction_id)
@@ -153,7 +153,7 @@ class Node:
 					present = False  
 
 					for utxo in self.utxos[transaction.sender_address]:
-						utxo_combined_id = utxo['transaction_id'] + ':' + utxo['type'] 
+						utxo_combined_id = utxo['transaction_id'] + ':' + str(utxo['type']) 
 						if utxo_combined_id == trans_input and utxo['recipient'] == transaction.sender_address: 
 							present = True
 							current_balance += utxo['amount']
@@ -243,8 +243,8 @@ class Node:
 			print('Node '+ self.myid + ' mining...')
 			trans_ids = [t.transaction_id[:10] for t in self.wallet.transactions]
 			print(trans_ids)
-			result = self.start_mining() 
-		return result
+			result = self.start_mining()
+			return result
 
 
 	def initialize_network(self):
