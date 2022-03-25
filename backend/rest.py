@@ -70,7 +70,7 @@ def start_node():
     node.create_wallet(node_data['IP'], node_data['PORT'])
     # Node info will be given later by bootstrap
     info = json.dumps({'ip' : node_data['IP'], 'port' : node_data['PORT'], 'public_key' : node.wallet.public_key})
-    response = requests.post('{}/bootstrap/register_node'.format(config.BOOTSTRAP_IP), json=info)
+    response = requests.post('{}/bootstrap/register_node'.format('http://' + config.BOOTSTRAP_IP), json=info)
     if response.status_code != 200:
         print(response.status_code+': Problem sending my info to bootstrap')
         return make_response(json.dumps({'ip' : node_data['IP']}),response.status_code)
