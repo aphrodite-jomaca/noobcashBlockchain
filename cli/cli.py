@@ -19,7 +19,7 @@ parser.add_argument('-n', help='Number of nodes - only bootstrap', type=int)
 args = parser.parse_args()
 
 IP = 'http://{}'.format(args.host)
-IP_LOCAL = 'http://127.0.0.1:{}'.format(args.port)
+IP_LOCAL = 'http://{}:{}'.format(args.host, args.port)
 PORT = str(args.port)
 NODES = args.n
 
