@@ -28,6 +28,8 @@ class Node:
 		self.total_block_time = 0
 		self.all_trans_ids = set()
 		self.total_trans_time = 0
+		self.first = True
+		self.start_tp = 0
 
 
 	def create_wallet(self, ip, port):
@@ -55,7 +57,7 @@ class Node:
 			'type' : 0, 
 			'recipient' : genesis_transaction.recipient_address , 
 			'amount' : genesis_transaction.amount }]
-		genesis_transaction.outputs = [genesis_utxo]
+		genesis_transaction.transaction_outputs = [genesis_utxo]
 		
 		# First VALID block
 		genesis_block = Block(1, b'1', [genesis_transaction], nonce = 0,currentHash = b'1')
@@ -116,7 +118,8 @@ class Node:
 
 
 		trans.transaction_outputs = outputs
-		
+		print("Outputs:")
+		print(outputs)
 		for output in outputs:
 			if sender not in self.curr_utxos : self.curr_utxos[sender] = []
 			self.curr_utxos[sender].append(output)
@@ -148,12 +151,14 @@ class Node:
 			with self.lock:
 				current_balance = 0
 				utxos_to_remove = []
-				
+				print(transaction.transaction_inputs)
+				print()
+				print(self.curr_utxos)
 				for trans_input in transaction.transaction_inputs: 
 					present = False  
-
-					for utxo in self.utxos[transaction.sender_address]:
+					for utxo in self.curr_utxos[transaction.sender_address]:
 						utxo_combined_id = utxo['transaction_id'] + ':' + str(utxo['type']) 
+						print(utxo_combined_id)
 						if utxo_combined_id == trans_input and utxo['recipient'] == transaction.sender_address: 
 							present = True
 							current_balance += utxo['amount']
@@ -173,7 +178,7 @@ class Node:
 			return False
 		
 		for utxo in utxos_to_remove: 
-			self.utxos[utxo['recipient']].remove(utxo)
+			self.curr_utxos[utxo['recipient']].remove(utxo)
 
 		#Create corresponding outputs
 		outputs = [{
@@ -195,8 +200,8 @@ class Node:
 		transaction.transaction_outputs = outputs
 
 		for output in outputs:
-			if output['recipient'] not in self.utxos : self.utxos[output['recipient']] = []
-			self.utxos[output['recipient']].append(output)
+			if output['recipient'] not in self.curr_utxos : self.curr_utxos[output['recipient']] = []
+			self.curr_utxos[output['recipient']].append(output)
 
 		self.wallet.transactions.append(transaction)
 
@@ -219,11 +224,11 @@ class Node:
 		return transactions
 
 	def broadcast_transaction(self, transaction):
-		utils.broadcast(transaction.to_json(), 'transaction', self.network_info, self.myid)
+		utils.broadcast(transaction.to_json(), 'transaction/receive', self.network_info, self.myid)
 		return
 	
 	def broadcast_block(self, block):
-		utils.broadcast(block, 'block', self.network_info, self.myid)
+		utils.broadcast(block.to_json(), 'block/receive', self.network_info, self.myid)
 		return
 
 	def create_and_broadcast_transaction(self, receiver_key, receiver_id, amount):
@@ -255,7 +260,7 @@ class Node:
 				'network_info': self.network_info,
 				'utxos': self.prev_val_utxos}
 
-		utils.broadcast(data, 'network_info', self.network_info, self.myid)		
+		utils.broadcast(json.dumps(data), 'network_info', self.network_info, self.myid)		
 
 		#make initial transactions of 100 NBCs
 		for node in self.network_info:

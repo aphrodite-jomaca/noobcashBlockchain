@@ -7,7 +7,7 @@ import json
 
 class Transaction:
 
-    def __init__(self, sender_address, recipient_address, amount, transaction_inputs):
+    def __init__(self, sender_address, recipient_address, amount, transaction_inputs, transaction_id = None, transaction_outputs = [], signature = None):
 
         ##set
 
@@ -15,10 +15,10 @@ class Transaction:
         self.sender_address = sender_address # To public key του wallet από το οποίο προέρχονται τα χρήματα
         self.recipient_address = recipient_address  # To public key του wallet στο οποίο θα καταλήξουν τα χρήματα
         self.amount = amount # το ποσό που θα μεταφερθεί
-        self.transaction_id = None # το hash του transaction
+        self.transaction_id = transaction_id # το hash του transaction
         self.transaction_inputs = transaction_inputs  # λίστα από Transaction Input 
-        self.transaction_outputs = []    # λίστα από Transaction Output 
-        self.signature = None
+        self.transaction_outputs = transaction_outputs    # λίστα από Transaction Output 
+        self.signature = signature
 
     
 

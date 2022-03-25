@@ -8,6 +8,6 @@ def broadcast(item, endpoint, nodes, myid):
         ip = node['address'][0]
         port = node['address'][1]
         address = ip + ":" + port
-        response = requests.post('{}/{}'.format(address, endpoint), json=json.dumps(item))
+        response = requests.post('{}/{}'.format(address, endpoint), json=item)
     return True
     

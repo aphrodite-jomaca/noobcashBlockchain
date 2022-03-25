@@ -21,8 +21,8 @@ app = Flask(__name__)
 # CORS(app)
 
 node = Node()
-first = True
-start_tp = 0
+#first = True
+#start_tp = 0
 
 #------------------------------------------------------------------------------------------------
 
@@ -207,8 +207,8 @@ def get_chain_length():
 @app.route('/transaction/receive', methods=['POST'])
 def receive_transaction():
     trans = Transaction(**json.loads(request.get_json())) 
-    return_val = Transaction.validate_transaction(trans)
-    # State.state.coin_distribution()
+    return_val = node.validate_transaction(trans)
+  
     if (len(node.wallet.transactions) >= config.CAPACITY):
         print('Node '+ node.myid + ' mining...')
         trans_ids = [t.transaction_id for t in node.wallet.transactions]
@@ -227,9 +227,9 @@ def give_pending_transactions():
 
 @app.route('/cli/transaction', methods=['POST'])
 def post_transaction():
-    if first == True:
-        start_tp = time.time()
-        first = False
+    if node.first == True:
+        node.start_tp = time.time()
+        node.first = False
     data = json.loads(request.get_json())
     try:
         amount = int(data['amount'])
@@ -238,13 +238,13 @@ def post_transaction():
     if amount < 0:
         return make_response("Amount should be a positive integer", 400)
 
-    if data['id'] >= config.NODES:
+    if int(data['id']) >= config.NODES:
         return make_response('Invalid Node Id', 400)
 
     for participant in node.network_info:
-        if participant['id'] == data['id']:
+        if participant['id'] == int(data['id']):
             pub = participant['pub_key']
-    result = node.create_and_broadcast_transaction(pub, data['id'], data['amount'])
+    result = node.create_and_broadcast_transaction(pub, int(data['id']), int(data['amount']))
 
     return make_response(json.dumps(result), 200) #TODO
 
@@ -265,7 +265,7 @@ def show_balance():
 def get_time_stats():
     avg_block_time = node.total_block_time/len(node.blockchain)
     valid_trans = len(node.blockchain)*config.CAPACITY
-    throughput = (node.total_trans_time - start_tp)/valid_trans
+    throughput = (node.total_trans_time - node.start_tp)/valid_trans
     
     result = {'avg_block_time': avg_block_time, 'throughput': throughput}
     return make_response(json.dumps(result), 200)
