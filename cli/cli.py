@@ -31,7 +31,7 @@ try:
     url = '{}/bootstrap/start'.format(IP_LOCAL) if NODES else '{}/node/start'.format(IP_LOCAL)
     json_data = {'NODES': NODES, 'IP': IP, 'PORT': PORT} if NODES else {'IP': IP, 'PORT': PORT}
     response = requests.post(url, json = json.dumps(json_data))
-    if response.status_code != 200:
+    if not str(response.status_code).startswith('2'):
         raise Exception('{}: Could not connect to {}!'.format(response.status_code, IP))
 except Exception as e:
     print(e)

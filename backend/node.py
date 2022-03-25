@@ -21,8 +21,8 @@ class Node:
 		self.miner_pid = -1
 		self.wallet = None
 		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
-		self.curr_utxos = []
-		self.prev_val_utxos = []
+		self.curr_utxos = {}
+		self.prev_val_utxos = {}
 		self.genesis_block = None
 		self.genesis_utxos = None
 		self.total_block_time = 0

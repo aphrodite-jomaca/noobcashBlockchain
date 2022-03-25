@@ -11,7 +11,7 @@ class Block:
     ##set
         self.index = index
         self.previousHash = previousHash
-        self.timestamp = str(time()).encode() if timestamp == None else timestamp.encode()
+        self.timestamp = str(time.time()).encode() if timestamp == None else timestamp.encode()
         self.currentHash = currentHash
         self.nonce = nonce
         self.listOfTransactions = listOfTransactions
