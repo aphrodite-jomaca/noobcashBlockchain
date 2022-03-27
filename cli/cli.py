@@ -50,7 +50,7 @@ while True:
             print('Input should be `t <recipient_id> <amount>')
             continue
 
-        url = '{}/cli/transaction/'.format(IP_LOCAL)
+        url = '{}/cli/transaction'.format(IP_LOCAL)
         json_data = {'id': rec_id, 'amount': amount}
 
         response = requests.post(url, json=json.dumps(json_data))

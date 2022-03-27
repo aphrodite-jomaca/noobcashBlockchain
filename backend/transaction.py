@@ -26,7 +26,7 @@ class Transaction:
         trans_dict = self.__dict__
         if trans_dict['signature'] != None:
                 #trans_dict['transaction_id'] = trans_dict['transaction_id'].decode("utf-8")
-                trans_dict['signature'] = trans_dict['signature'].decode("utf-8")
+                trans_dict['signature'] = trans_dict['signature'].decode("utf-8") if type(trans_dict['signature']) == bytes else trans_dict['signature']
         return json.dumps(trans_dict)
 
     def create_transaction_id(self):

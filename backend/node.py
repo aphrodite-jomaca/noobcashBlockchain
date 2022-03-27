@@ -18,7 +18,7 @@ class Node:
 		self.blockchain = []
 		self.current_id_count = 0
 		self.myid=myid
-		self.miner_pid = -1
+		self.miner_pid = None
 		self.wallet = None
 		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
 		self.curr_utxos = {}
@@ -118,11 +118,10 @@ class Node:
 
 
 		trans.transaction_outputs = outputs
-		print("Outputs:")
-		print(outputs)
+
 		for output in outputs:
-			if sender not in self.curr_utxos : self.curr_utxos[sender] = []
-			self.curr_utxos[sender].append(output)
+			if output['recipient'] not in self.curr_utxos : self.curr_utxos[output['recipient']] = []
+			self.curr_utxos[output['recipient']].append(output)
 		
 		self.wallet.transactions.append(trans)
 		self.all_trans_ids.add(trans.transaction_id)
@@ -151,14 +150,10 @@ class Node:
 			with self.lock:
 				current_balance = 0
 				utxos_to_remove = []
-				print(transaction.transaction_inputs)
-				print()
-				print(self.curr_utxos)
 				for trans_input in transaction.transaction_inputs: 
 					present = False  
 					for utxo in self.curr_utxos[transaction.sender_address]:
-						utxo_combined_id = utxo['transaction_id'] + ':' + str(utxo['type']) 
-						print(utxo_combined_id)
+						utxo_combined_id = utxo['transaction_id'] + ':' + str(utxo['type'])
 						if utxo_combined_id == trans_input and utxo['recipient'] == transaction.sender_address: 
 							present = True
 							current_balance += utxo['amount']
@@ -245,7 +240,7 @@ class Node:
 
 	def check_mining(self):
 		if len(self.wallet.transactions) == config.CAPACITY:
-			print('Node '+ self.myid + ' mining...')
+			print('Node '+ str(self.myid) + ' mining...')
 			trans_ids = [t.transaction_id[:10] for t in self.wallet.transactions]
 			print(trans_ids)
 			result = self.start_mining()
@@ -326,13 +321,13 @@ class Node:
 				
 				if block.index != previous_block.index+1:
 					print('different index')
-				if len(block.transactions) != config.CAPACITY:
+				if len(block.listOfTransactions) != config.CAPACITY:
 					raise Exception('invalid block capacity')
 				if not block.validate_currentHash():
 					raise Exception('invalid proof of work')
 
 				if block.validate_previousHash(self.blockchain):
-
+					print('Mphka')
 					# start from utxos as of last block
 					self.curr_utxos = copy.deepcopy(self.prev_val_utxos)
 					self.wallet.transactions = []
@@ -345,7 +340,7 @@ class Node:
 
 						# remove transaction after validating
 						self.wallet.transactions.remove(trans)
-
+					print('HELLO')
 					# append block, update valid utxos
 					self.blockchain.append(block)
 					self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
@@ -361,6 +356,7 @@ class Node:
 
 				else:
 					#CONFLICT HELP ME PLEASE
+					print('CONFLICT')
 					for ex_block in self.blockchain[:-1]:
 						if ex_block.currentHash == block.previousHash:
 							print("This block creates shorter chain, ignore.")

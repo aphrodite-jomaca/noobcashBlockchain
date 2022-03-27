@@ -19,9 +19,10 @@ class Block:
     def to_json(self):
         block_dict = deepcopy(self.__dict__)
         block_dict['listOfTransactions'] = [transaction.to_json() for transaction in block_dict['listOfTransactions']]
-        block_dict['previousHash'] = block_dict['previousHash'].decode("utf-8")
-        block_dict['currentHash'] = block_dict['currentHash'].decode("utf-8")
-        block_dict['timestamp'] = block_dict['timestamp'].decode("utf-8")
+        block_dict['previousHash'] = block_dict['previousHash'].decode("utf-8") if type(block_dict['previousHash']) == bytes else block_dict['previousHash']
+        block_dict['currentHash'] = block_dict['currentHash'].decode("utf-8") if type(block_dict['currentHash']) == bytes else block_dict['currentHash']
+        block_dict['timestamp'] = block_dict['timestamp'].decode("utf-8") if type(block_dict['timestamp']) == bytes else block_dict['timestamp']
+        block_dict['nonce'] = block_dict['nonce'].decode("utf-8") if type(block_dict['nonce']) == bytes else block_dict['nonce'] 
         return json.dumps(block_dict)
 
     def mine_block(self):
@@ -35,8 +36,8 @@ class Block:
         # https://en.bitcoin.it/wiki/Block_hashing_algorithm
             nonce = randint(0,1000000)
             nonce = hex(nonce).encode()
-            timestamp = str(time()).encode()
-            header = self.index + self.previous_hash + nonce + merkleRoot + timestamp
+            timestamp = str(time.time()).encode()
+            header = hex(self.index).encode() + self.previousHash + nonce + merkleRoot + timestamp
             h = SHA256.new()
 
             computed_hash = h.new(h.new(header).digest()).hexdigest()
@@ -57,7 +58,7 @@ class Block:
             merkleTree.encryptRecord(transaction.transaction_id.encode())
             merkleRoot = merkleTree.rootHash
 
-        header = self.index + self.previousHash + self.nonce+ merkleRoot + self.timestamp
+        header = hex(self.index).encode() + self.previousHash + self.nonce+ merkleRoot + self.timestamp
 
         h = SHA256.new()
         computed_hash = h.new(h.new(header).digest()).hexdigest()

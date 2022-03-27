@@ -19,7 +19,7 @@ def start_your_engines_and_may_the_best_woman_WIN(miner_pid, address, block):
     except:
         try:
             print('Mining...')
-            miner = Popen(['python', __file__, address, block.to_json()])
+            miner = Popen(['python3.6', __file__, address, block.to_json()])
             return miner.pid
 
         except Exception as e:
@@ -28,10 +28,10 @@ def start_your_engines_and_may_the_best_woman_WIN(miner_pid, address, block):
 
 def stop(miner_pid):
     try:
-        if miner_pid != -1:
+        if miner_pid != None:
             print('Stop miner with pid', miner_pid)
             os.kill(miner_pid, SIGTERM)
-            return -1
+            return None
         else:
             return True
     except OSError as e:
@@ -53,7 +53,7 @@ def mine_and_announce(address, block_json):
 
     json_data = {'block': block.to_json(), 'time': time.time()}
 
-    response = requests.post('{}/{}'.format(address, 'block/create'), json=json_data)
+    response = requests.post('{}/{}'.format(address, 'block/create'), json=json.dumps(json_data))
 
     if response.status_code != 200:
         print(f'Announcing block failed: {response.text}')

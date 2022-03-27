@@ -72,7 +72,7 @@ def start_node():
     info = json.dumps({'ip' : node_data['IP'], 'port' : node_data['PORT'], 'public_key' : node.wallet.public_key})
     response = requests.post('{}/bootstrap/register_node'.format('http://' + config.BOOTSTRAP_IP), json=info)
     if response.status_code != 200:
-        print(response.status_code+': Problem sending my info to bootstrap')
+        print(str(response.status_code) + ': Problem sending my info to bootstrap')
         return make_response(json.dumps({'ip' : node_data['IP']}),response.status_code)
 
     node.myid = response.json()['id']
@@ -107,8 +107,8 @@ def receive_network_info():
 
 @app.route('/block/receive', methods=['POST'])
 def receive_block():
-    data = json.loads(request.get_json())
-    block = Block(**json.loads(data))
+    #data = json.loads(request.get_json())
+    block = Block(**json.loads(request.get_json()))
     block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
     block.nonce = str(block.nonce).encode()
     block.currentHash = str(block.currentHash).encode()
@@ -168,8 +168,8 @@ def receive_block():
 
 @app.route('/block/create', methods=['POST'])
 def create_mined_block():
-    data = json.loads(request.get_json()['block'])
-    node.total_trans_time = request.get_json()['time']
+    data = json.loads(request.get_json())['block']
+    node.total_trans_time = json.loads(request.get_json())['time']
 
     block = Block(**json.loads(data))
     block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
@@ -187,7 +187,7 @@ def create_mined_block():
             print('Could not broadcast block as a result of mining')
         print ('Successful mining and broadcast')
 
-    print('All transactions currently in the network: '+ len(node.all_trans_ids))
+    print('All transactions currently in the network: '+ str(len(node.all_trans_ids)))
 
     return make_response('Block received',200)
 
@@ -209,11 +209,7 @@ def receive_transaction():
     trans = Transaction(**json.loads(request.get_json())) 
     return_val = node.validate_transaction(trans)
   
-    if (len(node.wallet.transactions) >= config.CAPACITY):
-        print('Node '+ node.myid + ' mining...')
-        trans_ids = [t.transaction_id for t in node.wallet.transactions]
-        print(trans_ids)
-        node.mine_and_broadcast_block()
+    node.check_mining()
 
     return make_response('Transaction received.',200)
 
