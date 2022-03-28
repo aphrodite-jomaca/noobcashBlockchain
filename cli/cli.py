@@ -64,7 +64,8 @@ while True:
         url = '{}/cli/view'.format(IP_LOCAL)
         transactions = requests.get(url).json()['transactions']
 
-        for t in transactions:
+        for trans in transactions:
+            t = json.loads(trans)
             print('{}:  Sender: {}, Recipient: {}, Amount: {} NBCs.'.format(t['transaction_id'][:10], t['sender_address'], t['recipient_address'], t['amount']))
 
     elif cli_input == 'balance':

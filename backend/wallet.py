@@ -17,7 +17,7 @@ class Wallet:
 
 	def wallet_balance(self, node):
 		balance = 0
-		for utxo in node.utxos[self.public_key]: 
+		for utxo in node.curr_utxos[self.public_key]: 
 			balance+=utxo['amount']
 		return balance 
 

@@ -46,6 +46,8 @@ class Block:
             if int(computed_hash[0:config.DIFFICULTY],16) == 0 :
                 break
 
+            print(nonce)
+
         self.currentHash = computed_hash.encode()
         self.nonce = nonce
         self.timestamp = timestamp    

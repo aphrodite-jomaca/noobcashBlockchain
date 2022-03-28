@@ -58,6 +58,7 @@ def register_node():
 
         if (node.current_id_count == config.NODES - 1) :
             node.initialize_network()
+        print(node.network_info)
         return make_response(json.dumps({'id' : node.current_id_count}),200)
 
 
@@ -161,15 +162,17 @@ def receive_block():
         if not capacity_reached:
             print('No new pending transactions, move on!')
 
-    print('All transactions currently in the network: '+ len(node.all_trans_ids))
+    print('All transactions currently in the network: '+ str(len(node.all_trans_ids)))
 
     return make_response('Block received',200)
     
 
 @app.route('/block/create', methods=['POST'])
 def create_mined_block():
-    data = json.loads(request.get_json())['block']
-    node.total_trans_time = json.loads(request.get_json())['time']
+    data_json = request.get_json()
+    data = json.loads(data_json)['block']
+    node.total_trans_time = json.loads(data_json)['time']
+    node.total_block_time += json.loads(data_json)['block_time']
 
     block = Block(**json.loads(data))
     block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
@@ -251,7 +254,7 @@ def view_transaction():
 
 @app.route('/cli/balance', methods=['GET'])
 def show_balance():
-    balance = node.wallet.wallet_balance()
+    balance = node.wallet.wallet_balance(node)
     if balance < 0:
         return make_response('Negative balance. WTF?', 200) 
     result = {'balance': balance}

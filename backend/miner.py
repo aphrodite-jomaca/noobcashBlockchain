@@ -48,16 +48,20 @@ def mine_and_announce(address, block_json):
     block.nonce = str(block.nonce).encode()
     block.currentHash = str(block.currentHash).encode()
     block.previousHash = str(block.previousHash).encode()
-
+    
+    start_mine_time = time.time()
     block.mine_block()
+    end_mine_time = time.time()
+    block_time = end_mine_time - start_mine_time
 
-    json_data = {'block': block.to_json(), 'time': time.time()}
+    json_data = {'block': block.to_json(), 'time': end_mine_time, 'block_time': block_time}
 
     response = requests.post('{}/{}'.format(address, 'block/create'), json=json.dumps(json_data))
 
     if response.status_code != 200:
         print(f'Announcing block failed: {response.text}')
 
+    exit(0)
     return
 
 if __name__ == '__main__':

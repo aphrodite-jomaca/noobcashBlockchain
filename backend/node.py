@@ -64,7 +64,7 @@ class Node:
 		self.genesis_block = copy.deepcopy(genesis_block)
 
 		self.curr_utxos[self.wallet.public_key] = genesis_utxo
-		self.prev_val_utxos[self.wallet.public_key] = genesis_utxo
+		self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
 		self.genesis_utxos = copy.deepcopy(self.curr_utxos)
 
 		self.blockchain.append(genesis_block)
@@ -125,7 +125,17 @@ class Node:
 		
 		self.wallet.transactions.append(trans)
 		self.all_trans_ids.add(trans.transaction_id)
-		
+		print("----------------CREATE--------------------")
+		print("Inputs: ",inputs)
+		for pub in self.curr_utxos:
+			print(pub[80:100])
+			for utxo in self.curr_utxos[pub]:
+				print(utxo['transaction_id'][:10])
+				print(utxo['type'])
+				print(utxo['recipient'][80:100])
+				print(utxo['amount'])
+				print()
+			print("---------------------------------------")
 		return trans
 
 	def validate_transaction(self, transaction):
@@ -135,9 +145,23 @@ class Node:
 				self.all_trans_ids.add(transaction.transaction_id)
 				if transaction in self.wallet.transactions:
 					return False
+				if transaction.sender_address == transaction.recipient_address:
+					raise Exception('You cannot send money to yourself!')
+				existent_sender = False
+				existent_recipient = False
+				for node in self.network_info:
+					if node['pub_key'] == transaction.sender_address:
+						existent_sender = True
+					if node['pub_key'] == transaction.recipient_address:
+						existent_recipient = True 
+				if existent_sender == False:
+					raise Exception('Unknown sender!')
+				if existent_recipient == False:
+					raise Exception('Unknown recipient!')
+				if transaction.amount <= 0:
+					raise Exception('Amount should be positive!')
 
 				valid_signature = transaction.verify_signature()
-
 				if not valid_signature:
 					raise Exception('Invalid Signature!')
 				
@@ -199,22 +223,34 @@ class Node:
 			self.curr_utxos[output['recipient']].append(output)
 
 		self.wallet.transactions.append(transaction)
-
+		
+		print("-----------VALIDATE----------")
+		print("Inputs: ", transaction.transaction_inputs)
+		for pub in self.curr_utxos:
+			print(pub[80:100])
+			for utxo in self.curr_utxos[pub]:
+				print(utxo['transaction_id'][:10])
+				print(utxo['type'])
+				print(utxo['recipient'][80:100])
+				print(utxo['amount'])
+				print()
+			print("------------------------------")
 		return True
 			
 	def view_transactions(self):
 		last_valid_block = self.blockchain[-1]
-		transactions = {'transactions': [t.to_json() for t in last_valid_block.listOfTransactions]}
+		valid_trans = copy.deepcopy(last_valid_block.listOfTransactions)
 
 		key_dict = {}
 		for node in self.network_info:
 			key_dict[node['pub_key']] = node['id']
 
-		for trans in transactions:
-			pub_sender = trans['sender_address']
-			pub_recipient = trans['recipient_address']
-			trans['sender_address'] = key_dict[pub_sender]
-			trans['recipient_address'] = key_dict[pub_recipient]
+		for trans in valid_trans:
+			pub_sender = trans.sender_address
+			pub_recipient = trans.recipient_address
+			trans.sender_address = key_dict[pub_sender]
+			trans.recipient_address = key_dict[pub_recipient]
+		transactions = {'transactions': [t.to_json() for t in valid_trans]}
 
 		return transactions
 
@@ -311,7 +347,7 @@ class Node:
 			try:
 				# save me
 				# please
-				start_time = time.time()
+				#start_time = time.time()
 				TRANSACTIONS_BACKUP = copy.deepcopy(self.wallet.transactions)
 				UTXOS_BACKUP = copy.deepcopy(self.curr_utxos)
 				BLOCKCHAIN_BACKUP = copy.deepcopy(self.blockchain)
@@ -327,20 +363,22 @@ class Node:
 					raise Exception('invalid proof of work')
 
 				if block.validate_previousHash(self.blockchain):
-					print('Mphka')
+					print('OK I HAVE PREVIOUS HASH')
 					# start from utxos as of last block
 					self.curr_utxos = copy.deepcopy(self.prev_val_utxos)
 					self.wallet.transactions = []
 
+					print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS:")
 					for trans in block.listOfTransactions:
 						# validate, update utxos
+						print(trans.transaction_id[:10]) 
 						valid_trans = self.validate_transaction(trans)
 						if not valid_trans:
 							raise Exception('Validating transaction failed!')
 
 						# remove transaction after validating
 						self.wallet.transactions.remove(trans)
-					print('HELLO')
+					print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS VALIDATED")
 					# append block, update valid utxos
 					self.blockchain.append(block)
 					self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
@@ -350,8 +388,9 @@ class Node:
 						if trans not in block.listOfTransactions:
 							ret = self.validate_transaction(trans)
 					print("Block has been added to the chain!")
-					end_time = time.time()
-					self.total_block_time += end_time - start_time
+					#end_time = time.time()
+					#self.total_block_time += end_time - start_time
+					print("Block hash:", block.currentHash[:10])
 					return (True, 1)
 
 				else:
@@ -366,8 +405,9 @@ class Node:
 					ret = self.resolve_conflict()
 					if ret == True:
 						print("Block has been added to the chain!")
-						end_time = time.time()
-						self.total_block_time += end_time - start_time
+						#end_time = time.time()
+						#self.total_block_time += end_time - start_time
+						print("Block hash:", block.currentHash[:10])
 					return (ret, 1)
 
 			except Exception as e:
@@ -380,7 +420,7 @@ class Node:
 				print('Block Validation fail:', e)
 				return (False, 2)
 
-	def find_longest_chain(self, chain):
+	def find_longest_chain(self):
 		#check for the longer chain across all nodes
 		lengths = [(self.myid, len(self.blockchain))]
 		network_problem = False
