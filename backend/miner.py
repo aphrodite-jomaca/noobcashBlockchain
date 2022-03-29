@@ -19,7 +19,7 @@ def start_your_engines_and_may_the_best_woman_WIN(miner_pid, address, block):
     except:
         try:
             miner = Popen(['python3.6', __file__, address, block.to_json()])
-            print('Miner '+str(miner.pid)+' is Mining...')
+            # print('Miner '+str(miner.pid)+' is Mining...')
             return miner.pid
 
         except Exception as e:

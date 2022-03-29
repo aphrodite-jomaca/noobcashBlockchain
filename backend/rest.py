@@ -58,7 +58,7 @@ def register_node():
 
         if (node.current_id_count == config.NODES - 1) :
             node.initialize_network()
-        print(node.network_info)
+        # print(node.network_info)
         return make_response(json.dumps({'id' : node.current_id_count}),200)
 
 

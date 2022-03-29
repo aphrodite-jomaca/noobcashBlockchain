@@ -143,17 +143,17 @@ class Node:
 		
 		self.wallet.transactions.append(trans)
 		self.all_trans_ids.add(trans.transaction_id)
-		print("----------------CREATE--------------------")
-		print("Inputs: ",inputs)
-		for pub in self.curr_utxos:
-			print(pub[80:100])
-			for utxo in self.curr_utxos[pub]:
-				print(utxo['transaction_id'][:10])
-				print(utxo['type'])
-				print(utxo['recipient'][80:100])
-				print(utxo['amount'])
-				print()
-			print("---------------------------------------")
+		# print("----------------CREATE--------------------")
+		# print("Inputs: ",inputs)
+		# for pub in self.curr_utxos:
+		# 	print(pub[80:100])
+		# 	for utxo in self.curr_utxos[pub]:
+		# 		print(utxo['transaction_id'][:10])
+		# 		print(utxo['type'])
+		# 		print(utxo['recipient'][80:100])
+		# 		print(utxo['amount'])
+		# 		print()
+		# 	print("---------------------------------------")
 		return trans
 
 	def validate_transaction(self, transaction):
@@ -242,17 +242,17 @@ class Node:
 
 		self.wallet.transactions.append(transaction)
 		
-		print("-----------VALIDATE----------")
-		print("Inputs: ", transaction.transaction_inputs)
-		for pub in self.curr_utxos:
-			print(pub[80:100])
-			for utxo in self.curr_utxos[pub]:
-				print(utxo['transaction_id'][:10])
-				print(utxo['type'])
-				print(utxo['recipient'][80:100])
-				print(utxo['amount'])
-				print()
-			print("------------------------------")
+		# print("-----------VALIDATE----------")
+		# print("Inputs: ", transaction.transaction_inputs)
+		# for pub in self.curr_utxos:
+		# 	print(pub[80:100])
+		# 	for utxo in self.curr_utxos[pub]:
+		# 		print(utxo['transaction_id'][:10])
+		# 		print(utxo['type'])
+		# 		print(utxo['recipient'][80:100])
+		# 		print(utxo['amount'])
+		# 		print()
+		# 	print("------------------------------")
 		return True
 			
 	def view_transactions(self):
@@ -381,22 +381,22 @@ class Node:
 					raise Exception('invalid proof of work')
 
 				if block.validate_previousHash(self.blockchain):
-					print('OK I HAVE PREVIOUS HASH')
+					# print('OK I HAVE PREVIOUS HASH')
 					# start from utxos as of last block
 					self.curr_utxos = copy.deepcopy(self.prev_val_utxos)
 					self.wallet.transactions = []
 
-					print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS:")
+					# print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS:")
 					for trans in block.listOfTransactions:
 						# validate, update utxos
-						print(trans.transaction_id[:10]) 
+						# print(trans.transaction_id[:10]) 
 						valid_trans = self.validate_transaction(trans)
 						if not valid_trans:
 							raise Exception('Validating transaction failed!')
 
 						# remove transaction after validating
 						self.wallet.transactions.remove(trans)
-					print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS VALIDATED")
+					# print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS VALIDATED")
 					# append block, update valid utxos
 					self.blockchain.append(block)
 					self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
@@ -405,15 +405,14 @@ class Node:
 					for trans in TRANSACTIONS_BACKUP:
 						if trans not in block.listOfTransactions:
 							ret = self.validate_transaction(trans)
-					print("Block has been added to the chain!")
+					print("Block has been added to the chain! Block hash:", block.currentHash[:10])
 					#end_time = time.time()
 					#self.total_block_time += end_time - start_time
-					print("Block hash:", block.currentHash[:10])
 					return (True, 1)
 
 				else:
 					#CONFLICT HELP ME PLEASE
-					print('CONFLICT')
+					print('--------------CONFLICT----------------')
 					for ex_block in self.blockchain[:-1]:
 						if ex_block.currentHash == block.previousHash:
 							print("This block creates shorter chain, ignore.")
@@ -422,10 +421,9 @@ class Node:
 					# time to resolve conflict
 					ret = self.resolve_conflict()
 					if ret == True:
-						print("Block has been added to the chain!")
+						print("Block has been added to the chain! Block hash:", block.currentHash[:10])
 						#end_time = time.time()
 						#self.total_block_time += end_time - start_time
-						print("Block hash:", block.currentHash[:10])
 					return (ret, 1)
 
 			except Exception as e:
