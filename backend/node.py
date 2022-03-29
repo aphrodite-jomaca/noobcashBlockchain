@@ -74,7 +74,25 @@ class Node:
 	def create_transaction(self, receiver, amount):
 		sender = self.wallet.public_key
 		inputs = []
-
+		if sender == receiver:
+			print("You cannot give money to yourself!")
+			return False
+		existent_sender = False
+		existent_recipient = False
+		for node in self.network_info:
+			if node['pub_key'] == sender:
+				existent_sender = True
+			if node['pub_key'] == receiver:
+				existent_recipient = True 
+		if existent_sender == False:
+			print('Unknown sender!')
+			return False
+		if existent_recipient == False:
+			print('Unknown recipient!')
+			return False
+		if amount <= 0:
+			print('Amount should be positive!')
+			return False
         #Check if we have enough money
 		current_balance = 0
 		utxos_to_remove = []
@@ -256,11 +274,11 @@ class Node:
 
 	def broadcast_transaction(self, transaction):
 		utils.broadcast(transaction.to_json(), 'transaction/receive', self.network_info, self.myid)
-		return
+		return True
 	
 	def broadcast_block(self, block):
 		utils.broadcast(block.to_json(), 'block/receive', self.network_info, self.myid)
-		return
+		return True
 
 	def create_and_broadcast_transaction(self, receiver_key, receiver_id, amount):
 		print("Transaction: {} gives {} to {}!".format(self.myid, amount, receiver_id))

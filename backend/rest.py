@@ -119,6 +119,7 @@ def receive_block():
     node.total_trans_time = time.time()
 
     if ret != False:
+        node.miner_pid = None
         with node.lock:
             res, flag = node.add_block(block)
             if not res:
@@ -170,6 +171,7 @@ def receive_block():
 @app.route('/block/create', methods=['POST'])
 def create_mined_block():
     data_json = request.get_json()
+    node.miner_id = None
     data = json.loads(data_json)['block']
     node.total_trans_time = json.loads(data_json)['time']
     node.total_block_time += json.loads(data_json)['block_time']
@@ -244,7 +246,9 @@ def post_transaction():
         if participant['id'] == int(data['id']):
             pub = participant['pub_key']
     result = node.create_and_broadcast_transaction(pub, int(data['id']), int(data['amount']))
-
+    if result == False:
+        return make_response("Cannot create transaction!", 403)
+    
     return make_response(json.dumps(result), 200) #TODO
 
 @app.route('/cli/view', methods=['GET'])
