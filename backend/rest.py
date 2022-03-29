@@ -56,8 +56,8 @@ def register_node():
 
         node.network_info.append({'id': node.current_id_count, 'address': (node_ip, node_port), 'pub_key': node_pub})
 
-        if (node.current_id_count == config.NODES - 1) :
-            node.initialize_network()
+        # if (node.current_id_count == config.NODES - 1) :
+        #     node.initialize_network()
         # print(node.network_info)
         return make_response(json.dumps({'id' : node.current_id_count}),200)
 
@@ -78,6 +78,11 @@ def start_node():
 
     node.myid = response.json()['id']
     return make_response(json.dumps({"id" : node.myid}), 201)
+
+@app.route('/network_init', methods=['GET'])
+def init_network():
+    res = node.initialize_network()
+    make_response(json.dumps(res), 200)
 
 
 @app.route('/network_info', methods=['POST'])

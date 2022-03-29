@@ -5,6 +5,7 @@ import requests
 import argparse
 import sys
 import json
+from backend import config
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -33,6 +34,11 @@ try:
     response = requests.post(url, json = json.dumps(json_data))
     if not str(response.status_code).startswith('2'):
         raise Exception('{}: Could not connect to {}!'.format(response.status_code, IP))
+    if not NODES:
+        if response.json()['id'] == config.NODES-1:
+            url = '{}/network_init'.format('http://' + config.BOOTSTRAP_IP)
+            response = requests.get(url).json()
+
 except Exception as e:
     print(e)
     exit(-1)
