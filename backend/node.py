@@ -293,7 +293,7 @@ class Node:
 		return result
 
 	def check_mining(self):
-		if len(self.wallet.transactions) == config.CAPACITY:
+		if len(self.wallet.transactions) >= config.CAPACITY:
 			print('Node '+ str(self.myid) + ' mining...')
 			trans_ids = [t.transaction_id[:10] for t in self.wallet.transactions]
 			print(trans_ids)
