@@ -5,11 +5,13 @@ import requests
 import argparse
 import sys
 import json
-from backend import config
-
 
 BASE_DIR = os.path.dirname(__file__)
+CONFIG_DIR = '../backend'
 sys.path.append(BASE_DIR)
+sys.path.append(CONFIG_DIR)
+
+import config
 #--------------------------------------PARSE INPUT--------------------------------------------------
 
 #difficulty, capacity and address of coordinator in config.py
