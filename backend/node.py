@@ -289,7 +289,7 @@ class Node:
 		result = self.broadcast_transaction(transaction)
 
 		#check if we need to mine 
-		result = self.check_mining()
+		check = self.check_mining()
 		return result
 
 	def check_mining(self):
@@ -456,9 +456,9 @@ class Node:
 
 			lengths.append((node["id"], response.json()['length']))
 
-		sorted_lengths = lengths.sort(key=lambda y: y[1], reverse=True)
-		max_len = sorted_lengths[0][1]
-		max_length_owners = [owner[0] for owner in sorted_lengths if owner[1] == max_len]
+		lengths.sort(key=lambda y: y[1], reverse=True)
+		max_len = lengths[0][1]
+		max_length_owners = [owner[0] for owner in lengths if owner[1] == max_len]
 
 		return (list(max_length_owners),network_problem)
 	

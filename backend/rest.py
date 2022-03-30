@@ -82,7 +82,7 @@ def start_node():
 @app.route('/network_init', methods=['GET'])
 def init_network():
     res = node.initialize_network()
-    make_response(json.dumps(res), 200)
+    return make_response(json.dumps(res), 200)
 
 
 @app.route('/network_info', methods=['POST'])
