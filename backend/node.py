@@ -36,18 +36,6 @@ class Node:
 		#create a wallet for this node, with a public key and a private key
 		self.wallet = Wallet((ip,port))
 
-	def update_network_info(self, info_list):
-		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
-		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
-		with self.lock:
-			for info in info_list:
-				if info['address'] == self.wallet.address:
-					self.myid = info['id']
-
-				self.network_info.append(info)
-		return
-				
-	
 	def genesis(self):
 		genesis_transaction = Transaction(0, self.wallet.public_key, 100*config.NODES, [])
 		genesis_transaction.create_transaction_id()
@@ -69,6 +57,35 @@ class Node:
 
 		self.blockchain.append(genesis_block)
 		return 
+
+	def initialize_network(self):
+		# broadcast info ring to all nodes 
+		# including initial chain (genesis block only)
+		# utxos as formed until now
+		data = {'chain': [block.to_json() for block in self.blockchain], 
+				'network_info': self.network_info,
+				'utxos': self.prev_val_utxos}
+
+		utils.broadcast(json.dumps(data), 'network_info', self.network_info, self.myid)		
+
+		#make initial transactions of 100 NBCs
+		for node in self.network_info:
+			if node['id'] == self.myid:
+				continue
+			result = self.create_and_broadcast_transaction(node['pub_key'], node['id'], 100)
+
+		return result
+
+	def update_network_info(self, info_list):
+		#add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
+		#bootstrap node informs all other nodes and gives the request node an id and 100 NBCs
+		with self.lock:
+			for info in info_list:
+				if info['address'] == self.wallet.address:
+					self.myid = info['id']
+
+				self.network_info.append(info)
+		return
 		
 
 	def create_transaction(self, receiver, amount):
@@ -156,7 +173,7 @@ class Node:
 		# 	print("---------------------------------------")
 		return trans
 
-	def validate_transaction(self, transaction):
+	def validate_transaction(self, transaction, exceptions=True):
 		#use of signature and NBCs balance
 		try:
 			with self.lock:
@@ -203,14 +220,15 @@ class Node:
 							break
 
 					#bug detected / wrong inputs
-					if not present:
+					if not present and exceptions:
 						raise Exception('Cannot find Transaction Input in UTXOs')
+					elif not present and not exceptions:
+						return False
 						
 				#detected double spending
 				if current_balance < transaction.amount:
 					raise Exception('Sender does not have enough NBCs!')
 		except Exception as e:
-
 			print(str(e))
 			return False
 		
@@ -296,28 +314,10 @@ class Node:
 		if len(self.wallet.transactions) >= config.CAPACITY:
 			print('Node '+ str(self.myid) + ' mining...')
 			trans_ids = [t.transaction_id[:10] for t in self.wallet.transactions]
-			print(trans_ids)
+			print('Pending Transactions: ',len(trans_ids))
 			result = self.start_mining()
 			return result
 
-
-	def initialize_network(self):
-		# broadcast info ring to all nodes 
-		# including initial chain (genesis block only)
-		# utxos as formed until now
-		data = {'chain': [block.to_json() for block in self.blockchain], 
-				'network_info': self.network_info,
-				'utxos': self.prev_val_utxos}
-
-		utils.broadcast(json.dumps(data), 'network_info', self.network_info, self.myid)		
-
-		#make initial transactions of 100 NBCs
-		for node in self.network_info:
-			if node['id'] == self.myid:
-				continue
-			result = self.create_and_broadcast_transaction(node['pub_key'], node['id'], 100)
-
-		return result
 		
 	def start_mining(self):
 		# copy_trans = deepcopy(self.transactions) 
@@ -339,26 +339,6 @@ class Node:
 
 
 	#consensus functions
-	def validate_chain(self, blockchain, transactions):
-		with self.lock:
-			# restart from genesis block
-			self.blockchain = [self.genesis_block]
-			self.curr_utxos = copy.deepcopy(self.genesis_utxos)
-			self.prev_val_utxos = copy.deepcopy(self.genesis_utxos)
-
-			self.wallet.transactions = []
-
-			# valid chain = valid blocks  (Appendable) and valid transactions in queue
-			for block in blockchain:
-				# updates transactions in queue
-				res = self.add_block(block)
-				if not res:
-					return False
-
-			for t in transactions:
-				self.validate_transaction(t)
-
-			return True
 
 	def add_block(self, block):
 		with self.lock:
@@ -408,6 +388,7 @@ class Node:
 					print("Block has been added to the chain! Block hash:", block.currentHash[:10])
 					#end_time = time.time()
 					#self.total_block_time += end_time - start_time
+
 					return (True, 1)
 
 				else:
@@ -461,7 +442,27 @@ class Node:
 		max_length_owners = [owner[0] for owner in lengths if owner[1] == max_len]
 
 		return (list(max_length_owners),network_problem)
-	
+
+	def validate_chain(self, blockchain, transactions):
+		with self.lock:
+			# restart from genesis block
+			self.blockchain = [self.genesis_block]
+			self.curr_utxos = copy.deepcopy(self.genesis_utxos)
+			self.prev_val_utxos = copy.deepcopy(self.genesis_utxos)
+
+			self.wallet.transactions = []
+
+			# valid chain = valid blocks  (Appendable) and valid transactions in queue
+			for block in blockchain:
+				# updates transactions in queue
+				res = self.add_block(block)
+				if not res:
+					return False
+
+			for t in transactions:
+				self.validate_transaction(t)
+
+			return True	
 	
 	def resolve_conflict(self):
 		#resolve correct chain
@@ -525,6 +526,7 @@ class Node:
 
 		return True
 						
+
 
 
 

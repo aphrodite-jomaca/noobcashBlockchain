@@ -10,6 +10,7 @@ from block import Block
 from transaction import Transaction
 import config
 import miner
+import utils
 
 from argparse import ArgumentParser
 
@@ -127,10 +128,11 @@ def receive_block():
         node.miner_pid = None
         with node.lock:
             res, flag = node.add_block(block)
+            utils.statistics(node)
             if not res:
                 print('Could not add block')
                 if flag == 2:
-                    return make_response('Invalid Info',403)
+                    return make_response('Invalid Info',400)
             else:
                 print('Block Added')
 
@@ -188,10 +190,11 @@ def create_mined_block():
     block.previousHash = str(block.previousHash).encode()
 
     res, flag = node.add_block(block)
+    utils.statistics(node)
     if not res:
         print('Could not add block')
         if flag == 2:
-            return make_response('Invalid Info',403)
+            return make_response('Invalid Info',400)
     else:
         if not (node.broadcast_block(block)):
             print('Could not broadcast block as a result of mining')
@@ -252,7 +255,7 @@ def post_transaction():
             pub = participant['pub_key']
     result = node.create_and_broadcast_transaction(pub, int(data['id']), int(data['amount']))
     if result == False:
-        return make_response("Cannot create transaction!", 403)
+        return make_response("Cannot create transaction!", 400)
     
     return make_response(json.dumps(result), 200) #TODO
 
@@ -271,9 +274,7 @@ def show_balance():
 
 @app.route('/cli/statistics', methods=['GET'])
 def get_time_stats():
-    avg_block_time = node.total_block_time/len(node.blockchain)
-    valid_trans = len(node.blockchain)*config.CAPACITY
-    throughput = (node.total_trans_time - node.start_tp)/valid_trans
+    avg_block_time, throughput = utils.statistics(node)
     
     result = {'avg_block_time': avg_block_time, 'throughput': throughput}
     return make_response(json.dumps(result), 200)
