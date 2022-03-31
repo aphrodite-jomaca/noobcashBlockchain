@@ -26,8 +26,6 @@ IP_LOCAL = 'http://{}:{}'.format(args.host, args.port)
 PORT = str(args.port)
 NODES = args.n
 
-
-
 #----------------------------------------START------------------------------------------------------
 
 try:

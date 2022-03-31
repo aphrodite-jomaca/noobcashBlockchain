@@ -1,6 +1,4 @@
-from audioop import avg
 import requests
-import json
 
 import config
 
@@ -11,7 +9,7 @@ def broadcast(item, endpoint, nodes, myid):
         ip = node['address'][0]
         port = node['address'][1]
         address = ip + ":" + port
-        response = requests.post('{}/{}'.format(address, endpoint), json=item)
+        requests.post('{}/{}'.format(address, endpoint), json=item)
     return True
 
 def statistics(node):

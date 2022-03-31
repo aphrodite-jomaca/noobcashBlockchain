@@ -1,14 +1,14 @@
 from Crypto.Hash import SHA256
-import config
 from pymerkle import MerkleTree
 import time
 from random import randint
 from copy import deepcopy
 import json
 
+import config
+
 class Block:
     def __init__(self, index, previousHash, listOfTransactions, timestamp=None, currentHash=None, nonce=None):
-    ##set
         self.index = index
         self.previousHash = previousHash
         self.timestamp = str(time.time()).encode() if timestamp == None else timestamp.encode()
@@ -46,15 +46,12 @@ class Block:
             if int(computed_hash[0:config.DIFFICULTY],16) == 0 :
                 break
 
-            # print(nonce)
-
         self.currentHash = computed_hash.encode()
         self.nonce = nonce
         self.timestamp = timestamp    
         return 
 
     def validate_currentHash(self):
-    # validate block hash value
         merkleTree = MerkleTree()
         for transaction in self.listOfTransactions :
             merkleTree.encryptRecord(transaction.transaction_id.encode())
@@ -75,6 +72,3 @@ class Block:
         prevHashValid = self.validate_previousHash(blockchain)
 
         return (currentHashValid and prevHashValid)
-
-    # def add_transaction(transaction transaction, state state):
-    # #add a transaction to the block

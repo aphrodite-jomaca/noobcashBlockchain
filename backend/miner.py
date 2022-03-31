@@ -1,17 +1,14 @@
 import os, sys
 import json
 import requests
-
+import time
 from subprocess import Popen
 from signal import SIGTERM
-import time
-
 
 from block import Block
 from transaction import Transaction
 
 def start_your_engines_and_may_the_best_woman_WIN(miner_pid, address, block):
-
     try:
         os.kill(miner_pid, 0)
         print(f'Miner with pid {miner_pid} is running.')
@@ -19,7 +16,6 @@ def start_your_engines_and_may_the_best_woman_WIN(miner_pid, address, block):
     except:
         try:
             miner = Popen(['python3.6', __file__, address, block.to_json()])
-            # print('Miner '+str(miner.pid)+' is Mining...')
             return miner.pid
 
         except Exception as e:

@@ -1,11 +1,9 @@
-
 import Crypto.Random
 from Crypto.PublicKey import RSA
 
 class Wallet:
 
 	def __init__(self,address):
-		##set
 		self.generate_wallet()
 		self.address = address
 		self.transactions = []

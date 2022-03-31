@@ -1,37 +1,31 @@
-from audioop import avg
 import requests
-from flask import Flask, request, make_response
 import json
 import copy
 import time
+from flask import Flask, request, make_response
+from argparse import ArgumentParser
 
-from node import Node
-from block import Block
-from transaction import Transaction
 import config
 import miner
 import utils
+from node import Node
+from block import Block
+from transaction import Transaction
 
-from argparse import ArgumentParser
 
 parser = ArgumentParser()
 parser.add_argument('host', type=str) #the host of the address
 parser.add_argument('port', type=int) #the port of the address
 args = parser.parse_args()
 app = Flask(__name__)
-# CORS(app)
 
 node = Node()
-#first = True
-#start_tp = 0
 
 #------------------------------------------------------------------------------------------------
 
 @app.route('/bootstrap/start', methods=['POST'])
 def start_bootstrap():
     boot_data = json.loads(request.get_json())
-    # config.DIFFICULTY = int(boot_data['DIFFICULTY'])
-    # config.CAPACITY = int(boot_data['CAPACITY'])
     config.NODES = int(boot_data['NODES'])
     node.myid = 0
     node.create_wallet(boot_data['IP'], boot_data['PORT'])
@@ -57,17 +51,12 @@ def register_node():
 
         node.network_info.append({'id': node.current_id_count, 'address': (node_ip, node_port), 'pub_key': node_pub})
 
-        # if (node.current_id_count == config.NODES - 1) :
-        #     node.initialize_network()
-        # print(node.network_info)
         return make_response(json.dumps({'id' : node.current_id_count}),200)
 
 
 @app.route('/node/start', methods=['POST'])
 def start_node():
     node_data = json.loads(request.get_json())
-    # config.DIFFICULTY = int(node_data['DIFFICULTY'])
-    # config.CAPACITY = int(node_data['CAPACITY'])
     # Ids will be given later by bootstrap
     node.create_wallet(node_data['IP'], node_data['PORT'])
     # Node info will be given later by bootstrap
@@ -94,7 +83,6 @@ def receive_network_info():
         node.update_network_info(data['network_info'])
 
         #first chain is genesis block --> no validation
-        
         node.prev_val_utxos = copy.deepcopy(data['utxos'])
         node.curr_utxos = copy.deepcopy(data['utxos'])
         node.genesis_utxos = copy.deepcopy(data['utxos'])
@@ -114,7 +102,6 @@ def receive_network_info():
 
 @app.route('/block/receive', methods=['POST'])
 def receive_block():
-    #data = json.loads(request.get_json())
     block = Block(**json.loads(request.get_json()))
     block.listOfTransactions = [Transaction(**json.loads(t)) for t in block.listOfTransactions]
     block.nonce = str(block.nonce).encode()
@@ -141,7 +128,6 @@ def receive_block():
         #in case of out-of order broadcasts of transactions
         #some trans may not be validated
         #try and find them from others
-
         for participant in node.network_info:
             if capacity_reached:
                 break
@@ -220,7 +206,7 @@ def get_chain_length():
 @app.route('/transaction/receive', methods=['POST'])
 def receive_transaction():
     trans = Transaction(**json.loads(request.get_json())) 
-    return_val = node.validate_transaction(trans)
+    node.validate_transaction(trans)
   
     node.check_mining()
 
@@ -281,6 +267,5 @@ def get_time_stats():
 
 
 # run it once for every node
-
 if __name__ == '__main__':
     app.run(host = args.host, port=args.port, debug = False,threaded = True)

@@ -1,26 +1,25 @@
+import requests
+import copy
+import json
+from threading import RLock
+
+import miner
+import utils
+import config
 from block import Block
 from wallet import Wallet
 from transaction import Transaction
-import time
-import requests
-import copy
-import utils
-import config
-import miner
-import json
 
-from threading import RLock
 
 class Node:
 	def __init__(self, myid=None):
-		##set
 		self.lock = RLock()
 		self.blockchain = []
 		self.current_id_count = 0
 		self.myid=myid
 		self.miner_pid = None
 		self.wallet = None
-		self.network_info = []   #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
+		self.network_info = [] #here we store information for every node, as its id, its address (ip:port) its public key and its balance 
 		self.curr_utxos = {}
 		self.prev_val_utxos = {}
 		self.genesis_block = None
@@ -125,7 +124,6 @@ class Node:
 		if current_balance < amount:
 			print('NBCs in wallet not enough! Requested ', amount, 'but have', current_balance, '!')
 			return False
-			
 		
 		for utxo in utxos_to_remove: 
 			self.curr_utxos[sender].remove(utxo)
@@ -151,7 +149,6 @@ class Node:
                 'amount': current_balance - trans.amount
             })
 
-
 		trans.transaction_outputs = outputs
 
 		for output in outputs:
@@ -160,21 +157,9 @@ class Node:
 		
 		self.wallet.transactions.append(trans)
 		self.all_trans_ids.add(trans.transaction_id)
-		# print("----------------CREATE--------------------")
-		# print("Inputs: ",inputs)
-		# for pub in self.curr_utxos:
-		# 	print(pub[80:100])
-		# 	for utxo in self.curr_utxos[pub]:
-		# 		print(utxo['transaction_id'][:10])
-		# 		print(utxo['type'])
-		# 		print(utxo['recipient'][80:100])
-		# 		print(utxo['amount'])
-		# 		print()
-		# 	print("---------------------------------------")
 		return trans
 
 	def validate_transaction(self, transaction, exceptions=True):
-		#use of signature and NBCs balance
 		try:
 			with self.lock:
 				self.all_trans_ids.add(transaction.transaction_id)
@@ -251,7 +236,6 @@ class Node:
 				'amount': current_balance - transaction.amount
 			})
 
-
 		transaction.transaction_outputs = outputs
 
 		for output in outputs:
@@ -259,18 +243,7 @@ class Node:
 			self.curr_utxos[output['recipient']].append(output)
 
 		self.wallet.transactions.append(transaction)
-		
-		# print("-----------VALIDATE----------")
-		# print("Inputs: ", transaction.transaction_inputs)
-		# for pub in self.curr_utxos:
-		# 	print(pub[80:100])
-		# 	for utxo in self.curr_utxos[pub]:
-		# 		print(utxo['transaction_id'][:10])
-		# 		print(utxo['type'])
-		# 		print(utxo['recipient'][80:100])
-		# 		print(utxo['amount'])
-		# 		print()
-		# 	print("------------------------------")
+
 		return True
 			
 	def view_transactions(self):
@@ -290,6 +263,7 @@ class Node:
 
 		return transactions
 
+
 	def broadcast_transaction(self, transaction):
 		utils.broadcast(transaction.to_json(), 'transaction/receive', self.network_info, self.myid)
 		return True
@@ -307,7 +281,7 @@ class Node:
 		result = self.broadcast_transaction(transaction)
 
 		#check if we need to mine 
-		check = self.check_mining()
+		self.check_mining()
 		return result
 
 	def check_mining(self):
@@ -318,9 +292,7 @@ class Node:
 			result = self.start_mining()
 			return result
 
-		
 	def start_mining(self):
-		# copy_trans = deepcopy(self.transactions) 
 		for node in self.network_info:
 			if node['id'] == self.myid:
 				ip = node['address'][0]
@@ -339,13 +311,11 @@ class Node:
 
 
 	#consensus functions
-
 	def add_block(self, block):
 		with self.lock:
 			try:
 				# save me
 				# please
-				#start_time = time.time()
 				TRANSACTIONS_BACKUP = copy.deepcopy(self.wallet.transactions)
 				UTXOS_BACKUP = copy.deepcopy(self.curr_utxos)
 				BLOCKCHAIN_BACKUP = copy.deepcopy(self.blockchain)
@@ -361,22 +331,18 @@ class Node:
 					raise Exception('invalid proof of work')
 
 				if block.validate_previousHash(self.blockchain):
-					# print('OK I HAVE PREVIOUS HASH')
 					# start from utxos as of last block
 					self.curr_utxos = copy.deepcopy(self.prev_val_utxos)
 					self.wallet.transactions = []
 
-					# print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS:")
 					for trans in block.listOfTransactions:
 						# validate, update utxos
-						# print(trans.transaction_id[:10]) 
 						valid_trans = self.validate_transaction(trans)
 						if not valid_trans:
 							raise Exception('Validating transaction failed!')
-
 						# remove transaction after validating
 						self.wallet.transactions.remove(trans)
-					# print("ADD BLOCK: BLOCK LIST OF TRANSACTIONS VALIDATED")
+
 					# append block, update valid utxos
 					self.blockchain.append(block)
 					self.prev_val_utxos = copy.deepcopy(self.curr_utxos)
@@ -384,10 +350,8 @@ class Node:
 					# put lefto ver transactions in queue to mine next
 					for trans in TRANSACTIONS_BACKUP:
 						if trans not in block.listOfTransactions:
-							ret = self.validate_transaction(trans)
+							ret = self.validate_transaction(trans, False)
 					print("Block has been added to the chain! Block hash:", block.currentHash[:10])
-					#end_time = time.time()
-					#self.total_block_time += end_time - start_time
 
 					return (True, 1)
 
@@ -403,8 +367,7 @@ class Node:
 					ret = self.resolve_conflict()
 					if ret == True:
 						print("Block has been added to the chain! Block hash:", block.currentHash[:10])
-						#end_time = time.time()
-						#self.total_block_time += end_time - start_time
+
 					return (ret, 1)
 
 			except Exception as e:
@@ -460,7 +423,7 @@ class Node:
 					return False
 
 			for t in transactions:
-				self.validate_transaction(t)
+				self.validate_transaction(t,False)
 
 			return True	
 	
@@ -510,7 +473,6 @@ class Node:
 
 						#we accept first valid chain with max_len 
 						#but in case of no valid chain (???) we revert to initial chain (ours)
-
 						BLOCKCHAIN = copy.deepcopy(self.blockchain)
 						TRANSACTIONS = copy.deepcopy(self.wallet.transactions)
 						UTXOS = copy.deepcopy(self.curr_utxos)
@@ -525,9 +487,3 @@ class Node:
 				self.valid_utxos = VALID_UTXOS
 
 		return True
-						
-
-
-
-
-
