@@ -1,2 +1,2 @@
-# distributed-noobcash
- Repo for Distributed Systems ECE NTUA 2022
+# Distributed-Noobcash
+ Repo for Distributed Systems Project ECE NTUA 2022
