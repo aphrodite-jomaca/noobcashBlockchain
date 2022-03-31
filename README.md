@@ -45,6 +45,6 @@ Commands:
 
 ## Authors
 
-Angeliki Dimitriou (https://github.com/aggeliki-dimitriou)
-Aphrodite Tzomaka (https://github.com/aphrodite-jomaca)
-Nikodimos Marketos (https://github.com/nikodimakis)
+[Angeliki Dimitriou](https://github.com/aggeliki-dimitriou)
+[Aphrodite Tzomaka](https://github.com/aphrodite-jomaca)
+[Nikodimos Marketos](https://github.com/nikodimakis)
